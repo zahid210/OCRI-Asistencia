@@ -3,8 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { pool } from './db.js'
-import { findPractitionerByDni, createAttendance } from './db.js'
+import sequelize, { Practicante, Asistencia } from './db.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -83,7 +82,9 @@ app.post('/api/attendance', async (req, res) => {
   }
 
   try {
-    const practitioner = await findPractitionerByDni(dni)
+    const practitioner = await Practicante.findOne({
+      where: { dni, estado: 'ACTIVO' }
+    })
 
     if (!practitioner) {
       return res.status(404).json({
@@ -93,10 +94,9 @@ app.post('/api/attendance', async (req, res) => {
 
     const lima = limaNow()
 
-    const [existingRows] = await pool.query(
-      'SELECT id, hora_entrada, hora_salida, estado, observacion FROM asistencias WHERE practicante_id = ? AND fecha = ?',
-      [practitioner.id, lima.date]
-    )
+    let existing = await Asistencia.findOne({
+      where: { practicante_id: practitioner.id, fecha: lima.date }
+    })
 
     const practitionerData = {
       id: practitioner.id,
@@ -109,43 +109,44 @@ app.post('/api/attendance', async (req, res) => {
       estado: practitioner.estado
     }
 
-    if (existingRows.length === 0) {
-      await createAttendance(practitioner.id, lima.date, lima.time)
+    if (!existing) {
+      await Asistencia.create({
+        practicante_id: practitioner.id,
+        fecha: lima.date,
+        hora_entrada: lima.time,
+        estado: 'PENDIENTE'
+      })
 
-      const [attendanceRows] = await pool.query(
-        'SELECT id, fecha, hora_entrada, hora_salida, estado, observacion FROM asistencias WHERE practicante_id = ? AND fecha = ?',
-        [practitioner.id, lima.date]
-      )
+      existing = await Asistencia.findOne({
+        where: { practicante_id: practitioner.id, fecha: lima.date }
+      })
 
       return res.status(201).json({
         success: true,
         code: 'ATTENDANCE_REGISTERED',
         message: 'Asistencia registrada correctamente.',
         practitioner: practitionerData,
-        attendance: attendanceRows[0],
+        attendance: existing.get({ plain: true }),
         ...limaDateParts()
       })
     }
 
-    const existing = existingRows[0]
-
     if (existing.hora_salida == null) {
-      await pool.query(
-        'UPDATE asistencias SET hora_salida = ?, estado = ? WHERE id = ?',
-        [lima.time, 'COMPLETA', existing.id]
+      await Asistencia.update(
+        { hora_salida: lima.time, estado: 'COMPLETA' },
+        { where: { id: existing.id } }
       )
 
-      const [attendanceRows] = await pool.query(
-        'SELECT id, fecha, hora_entrada, hora_salida, estado, observacion FROM asistencias WHERE practicante_id = ? AND fecha = ?',
-        [practitioner.id, lima.date]
-      )
+      existing = await Asistencia.findOne({
+        where: { practicante_id: practitioner.id, fecha: lima.date }
+      })
 
       return res.status(200).json({
         success: true,
         code: 'ATTENDANCE_COMPLETED',
         message: 'Salida registrada correctamente.',
         practitioner: practitionerData,
-        attendance: attendanceRows[0],
+        attendance: existing.get({ plain: true }),
         ...limaDateParts()
       })
     }
@@ -157,7 +158,7 @@ app.post('/api/attendance', async (req, res) => {
     })
   } catch (err) {
     console.error('Attendance error:', err)
-    if (err.code === 'ER_DUP_ENTRY') {
+    if (err.name === 'SequelizeUniqueConstraintError' || err.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({
         success: false,
         code: 'ALREADY_REGISTERED',
@@ -172,7 +173,7 @@ app.post('/api/attendance', async (req, res) => {
 
 app.get('/api/health', async (_req, res) => {
   try {
-    const [rows] = await pool.query('SELECT 1')
+    await sequelize.authenticate()
     res.json({ ok: true, timezone: LIMA_TZ })
   } catch (err) {
     res.status(500).json({ ok: false, message: 'Database connection failed' })
