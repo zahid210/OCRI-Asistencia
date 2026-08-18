@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "db:sync": "node src/sync.js",
+    "db:sync:force": "node src/sync.js force",
+    "db:seed": "node src/seed.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
