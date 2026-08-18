@@ -1,0 +1,413 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400&display=swap');
+
+:root {
+  font-family: 'Inter', Arial, sans-serif;
+  color: #fff;
+  background: #101010;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body { overflow: hidden; }
+
+.attendance-screen {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  background: #151515;
+}
+
+.background {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  background: url('/background.png') center center / cover no-repeat;
+  filter: brightness(.82) saturate(.8);
+  transform: scale(1.01);
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: rgba(0, 0, 0, .46);
+  pointer-events: none;
+}
+
+.top-left-clock {
+  position: absolute;
+  top: clamp(72px, 10.2vh, 118px);
+  left: clamp(120px, 12.2vw, 250px);
+  display: flex;
+  align-items: center;
+  gap: clamp(28px, 2.2vw, 46px);
+}
+
+.clock-face {
+  position: relative;
+  width: clamp(148px, 9.8vw, 198px);
+  aspect-ratio: 1;
+  border: 3px solid rgba(255,255,255,.96);
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.clock-hand {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 43%;
+  transform-origin: 50% 100%;
+  background: #fff;
+  transition: transform 1s linear;
+  will-change: transform;
+}
+
+.clock-face:not(.is-ready) .clock-hand {
+  transition: none;
+}
+
+.clock-hand-hour {
+  transform: translate(-50%, -100%) rotate(var(--hour-angle, 0deg));
+  height: 28%;
+}
+
+.clock-hand-minute {
+  transform: translate(-50%, -100%) rotate(var(--minute-angle, 0deg));
+  height: 38%;
+}
+
+.clock-hand-second {
+  transform: translate(-50%, -100%) rotate(var(--second-angle, 0deg));
+  height: 45%;
+  width: 1px;
+  background: rgba(255,255,255,.78);
+}
+
+.clock-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.92);
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+.digital-time {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+  font-weight: 100;
+  letter-spacing: .035em;
+}
+
+.digital-time > span {
+  font-size: clamp(68px, 5vw, 102px);
+  line-height: .9;
+}
+
+.time-seconds {
+  color: rgba(255,255,255,.55);
+}
+
+.digital-time small {
+  font-size: clamp(18px, 1.35vw, 28px);
+  font-weight: 200;
+  letter-spacing: .06em;
+}
+
+.ocri-logo {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: clamp(125px, 9.3vw, 190px);
+  height: auto;
+  transform: translate(-50%, -50%);
+  object-fit: contain;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.22));
+}
+
+.login-panel {
+  position: absolute;
+  left: 50%;
+  top: 57.4%;
+  transform: translateX(-50%);
+  width: min(390px, 26vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dni-input-shell {
+  position: relative;
+  width: 100%;
+  height: 72px;
+  border: 1px solid rgba(255,255,255,.86);
+  border-radius: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.dni-input-shell.shake {
+  animation: mac-shake .5s cubic-bezier(.36,.07,.19,.97);
+}
+
+@keyframes mac-shake {
+  0%   { transform: translateX(0); }
+  12%  { transform: translateX(-11px); }
+  24%  { transform: translateX(10px); }
+  36%  { transform: translateX(-8px); }
+  48%  { transform: translateX(7px); }
+  60%  { transform: translateX(-5px); }
+  72%  { transform: translateX(4px); }
+  84%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+.dni-input-shell input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  caret-color: #fff;
+  text-align: center;
+  font-family: 'Inter', Arial, sans-serif;
+  font-size: 29px;
+  font-weight: 200;
+  font-synthesis: none;
+  letter-spacing: .23em;
+  z-index: 2;
+}
+
+.dots {
+  margin-top: 17px;
+  display: flex;
+  gap: 7px;
+  min-height: 13px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid rgba(217,217,217,.6);
+  transform: scale(.86);
+  transition: background .18s ease, transform .18s ease,
+              box-shadow .18s ease, border-color .18s ease;
+}
+
+.dot.active {
+  background: rgba(255,255,255,.88);
+  border-color: rgba(255,255,255,.88);
+  box-shadow: 0 0 8px rgba(255,255,255,.45);
+  transform: scale(1);
+}
+
+.toast-stack {
+  position: absolute;
+  top: clamp(76px, 10.6vh, 122px);
+  right: clamp(100px, 9vw, 185px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.glass-notification {
+  position: relative;
+  width: 258px;
+  min-height: 76px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0,0,0,.12);
+}
+
+.notification-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 7px;
+  color: rgba(50,50,50,.63);
+  font-size: 11px;
+  font-weight: 200;
+  letter-spacing: .02em;
+  background: rgba(217,217,217,.55);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+}
+
+.notification-body {
+  padding: 8px 10px 9px;
+  color: rgba(30,30,30,.8);
+  background: rgba(217,217,217,.35);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+}
+
+.check {
+  font-size: 15px;
+  color: rgba(60,60,60,.62);
+}
+
+.notification-name {
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 300;
+}
+
+.notification-dni {
+  margin-top: 2px;
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 200;
+  color: rgba(50,50,50,.55);
+}
+
+.notification-detail {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.1;
+  font-weight: 300;
+  color: rgba(50,50,50,.7);
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity .48s cubic-bezier(.22,1,.36,1),
+              transform .48s cubic-bezier(.22,1,.36,1);
+}
+
+.toast-leave-active {
+  position: absolute;
+}
+
+.toast-move {
+  transition: transform .48s cubic-bezier(.22,1,.36,1);
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateY(17px);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(-17px);
+}
+
+@media (max-width: 1100px) {
+  .top-left-clock { left: 7vw; }
+  .toast-stack { right: 6vw; }
+}
+
+@media (max-height: 720px) {
+  .top-left-clock { top: 55px; }
+  .toast-stack { top: 58px; }
+  .login-panel { top: 56%; }
+}
+
+/* ---------- Responsive: tablet / phone ---------- */
+
+@media (max-width: 860px) {
+  .attendance-screen {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(20px, 4.5vh, 44px);
+    padding:
+      max(22px, env(safe-area-inset-top))
+      max(18px, env(safe-area-inset-right))
+      max(22px, env(safe-area-inset-bottom))
+      max(18px, env(safe-area-inset-left));
+  }
+
+  .top-left-clock {
+    position: static;
+    transform: none;
+    gap: 14px;
+  }
+
+  .clock-face {
+    width: clamp(92px, 25vw, 150px);
+    border-width: 2px;
+  }
+
+  .digital-time { gap: 6px; }
+  .digital-time > span { font-size: clamp(34px, 11vw, 58px); }
+  .digital-time small { font-size: 14px; }
+
+  .ocri-logo {
+    position: static;
+    transform: none;
+    width: clamp(84px, 24vw, 150px);
+  }
+
+  .login-panel {
+    position: static;
+    transform: none;
+    width: min(380px, 86vw);
+  }
+
+  .dni-input-shell { height: 64px; }
+  .dni-input-shell input { font-size: 26px; }
+
+  .toast-stack {
+    top: auto;
+    right: auto;
+    left: 50%;
+    bottom: max(20px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    align-items: center;
+    width: min(340px, 92vw);
+  }
+
+  .glass-notification { width: 100%; }
+}
+
+@media (max-width: 860px) and (max-height: 520px) {
+  .attendance-screen {
+    gap: 10px;
+    justify-content: flex-start;
+    padding-top: 14px;
+  }
+
+  .clock-face { width: 74px; }
+  .digital-time > span { font-size: 30px; }
+  .digital-time small { font-size: 12px; }
+
+  .ocri-logo { width: 64px; }
+
+  .login-panel { width: min(340px, 80vw); }
+  .dni-input-shell { height: 56px; }
+  .dni-input-shell input { font-size: 24px; }
+
+  .toast-stack { bottom: 12px; }
+}
+
