@@ -7,5 +7,14 @@
     "facultad": "Ingenieria de Sistemas",
     "ciclo": 8,
     "estado": "ACTIVO"
+  },
+  {
+    "dni": "72513399",
+    "nombre": "Alexander Neil",
+    "apellidos": "Porras Falcon",
+    "codigo_alumno": "2023100691B",
+    "facultad": "Ingenieria de Sistemas",
+    "ciclo": 8,
+    "estado": "ACTIVO"
   }
 ]
