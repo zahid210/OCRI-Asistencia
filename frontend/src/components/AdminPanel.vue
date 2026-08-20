@@ -94,7 +94,7 @@ const columns = {
 
 const fieldConfigs = {
   practicantes: [
-    { key: 'dni', label: 'DNI', type: 'text', required: true, maxlength: 8 },
+    { key: 'dni', label: 'DNI', type: 'text', required: true, maxlength: 8, numeric: true },
     { key: 'nombre', label: 'Nombre', type: 'text', required: true, maxlength: 100 },
     { key: 'apellidos', label: 'Apellidos', type: 'text', required: true, maxlength: 150 },
     { key: 'codigo_alumno', label: 'Código de alumno', type: 'text', required: true, maxlength: 30 },
@@ -114,7 +114,7 @@ const fieldConfigs = {
     { key: 'estado', label: 'Estado', type: 'select', options: ['ACTIVO', 'INACTIVO'] }
   ],
   trabajadores: [
-    { key: 'dni', label: 'DNI', type: 'text', required: true, maxlength: 8 },
+    { key: 'dni', label: 'DNI', type: 'text', required: true, maxlength: 8, numeric: true },
     { key: 'nombre', label: 'Nombre', type: 'text', required: true, maxlength: 100 },
     { key: 'apellidos', label: 'Apellidos', type: 'text', required: true, maxlength: 150 },
     { key: 'codigo_trabajador', label: 'Código de trabajador', type: 'text', maxlength: 30 },
@@ -261,6 +261,10 @@ function applyAsistFiltros() {
   loadAsistencias()
 }
 
+function onAsistDniInput(event) {
+  asistFiltros.value.dni = event.target.value.replace(/\D+/g, '').slice(0, 8)
+}
+
 function clearAsistFiltros() {
   asistFiltros.value = { fecha: '', facultad_id: '', estado: '', dni: '' }
   asistPage.value = 1
@@ -347,6 +351,38 @@ function buildPayload() {
     payload[f.key] = value === '' || value == null ? null : value
   }
   return payload
+}
+
+function onFieldInput(field, event) {
+  let value = event.target.value
+  if (field.numeric) value = value.replace(/\D+/g, '').slice(0, 8)
+  form.value[field.key] = value
+}
+
+function numericSanitize(value) {
+  return String(value ?? '').replace(/\D+/g, '').slice(0, 8)
+}
+
+function onNumericKeydown(event) {
+  if (event.ctrlKey || event.metaKey || event.altKey) return
+  if (event.key.length === 1 && !/\d/.test(event.key)) event.preventDefault()
+}
+
+function onFieldKeydown(field, event) {
+  if (field.numeric) onNumericKeydown(event)
+}
+
+function onFieldPaste(field, event) {
+  if (!field.numeric) return
+  event.preventDefault()
+  const text = (event.clipboardData?.getData('text') ?? '').replace(/\D+/g, '')
+  form.value[field.key] = numericSanitize((form.value[field.key] ?? '') + text)
+}
+
+function onAsistDniPaste(event) {
+  event.preventDefault()
+  const text = (event.clipboardData?.getData('text') ?? '').replace(/\D+/g, '')
+  asistFiltros.value.dni = numericSanitize((asistFiltros.value.dni ?? '') + text)
 }
 
 async function saveForm() {
@@ -471,12 +507,16 @@ function isSelf(row) {
               </option>
             </select>
             <input
-              v-model="asistFiltros.dni"
+              :value="asistFiltros.dni"
               type="text"
               class="asist-input"
               size="8"
+              inputmode="numeric"
               maxlength="8"
               placeholder="DNI"
+              @input="onAsistDniInput"
+              @keydown="onNumericKeydown"
+              @paste="onAsistDniPaste"
             />
             <button type="button" class="admin-btn" @click="applyAsistFiltros">Buscar</button>
             <button type="button" class="admin-btn" @click="clearAsistFiltros">Limpiar</button>
@@ -604,15 +644,19 @@ function isSelf(row) {
               </select>
 
               <input
-                v-else
-                v-model="form[f.key]"
-                :type="f.type"
-                :maxlength="f.maxlength"
-                :minlength="f.type === 'password' ? f.min : undefined"
-                :min="f.min"
-                :max="f.max"
-                :step="f.type === 'number' ? 1 : undefined"
-              />
+              v-else
+              :value="form[f.key]"
+              :type="f.type"
+              :inputmode="f.numeric ? 'numeric' : undefined"
+              :maxlength="f.maxlength"
+              :minlength="f.type === 'password' ? f.min : undefined"
+              :min="f.min"
+              :max="f.max"
+              :step="f.type === 'number' ? 1 : undefined"
+              @input="onFieldInput(f, $event)"
+              @keydown="onFieldKeydown(f, $event)"
+              @paste="onFieldPaste(f, $event)"
+            />
             </label>
           </div>
 
