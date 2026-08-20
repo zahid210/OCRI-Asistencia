@@ -3,7 +3,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { readFileSync, existsSync } from 'fs'
 import bcrypt from 'bcryptjs'
-import sequelize, { Facultad, Practicante, Trabajador, Usuario } from './db.js'
+import sequelize, { Asistencia, Facultad, Practicante, Trabajador, Usuario } from './db.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -11,10 +11,11 @@ const __dirname = path.dirname(__filename)
 const dataDir = process.env.SEED_DIR || path.join(__dirname, '../data')
 const facultadesFile = path.join(dataDir, 'facultades.json')
 const practicantesFile = path.join(dataDir, 'practicantes.json')
+const asistenciasFile = path.join(dataDir, 'asistencias.json')
 const trabajadoresFile = path.join(dataDir, 'trabajadores.json')
 const usuariosFile = path.join(dataDir, 'usuarios.json')
 
-for (const file of [facultadesFile, practicantesFile, trabajadoresFile, usuariosFile]) {
+for (const file of [facultadesFile, practicantesFile, asistenciasFile, trabajadoresFile, usuariosFile]) {
   if (!existsSync(file)) {
     console.error(`No se encontró el archivo de datos: ${file}`)
     process.exit(1)
@@ -23,6 +24,7 @@ for (const file of [facultadesFile, practicantesFile, trabajadoresFile, usuarios
 
 const facultades = JSON.parse(readFileSync(facultadesFile, 'utf8'))
 const practicantes = JSON.parse(readFileSync(practicantesFile, 'utf8'))
+const asistencias = JSON.parse(readFileSync(asistenciasFile, 'utf8'))
 const trabajadores = JSON.parse(readFileSync(trabajadoresFile, 'utf8'))
 const usuarios = JSON.parse(readFileSync(usuariosFile, 'utf8'))
 
@@ -45,6 +47,7 @@ for (const f of facultades) {
 
 let created = 0
 let skipped = 0
+const practicanteByDni = new Map()
 
 for (const p of practicantes) {
   const facultadId = p.facultad
@@ -56,7 +59,7 @@ for (const p of practicantes) {
     continue
   }
 
-  const [, isNew] = await Practicante.findOrCreate({
+  const [row, isNew] = await Practicante.findOrCreate({
     where: { dni: String(p.dni) },
     defaults: {
       dni: String(p.dni),
@@ -69,8 +72,36 @@ for (const p of practicantes) {
     }
   })
 
+  practicanteByDni.set(String(row.dni), row.id)
   if (isNew) created++
   else skipped++
+}
+
+let createdAsistencias = 0
+let skippedAsistencias = 0
+
+for (const a of asistencias) {
+  const practicanteId = practicanteByDni.get(String(a.dni))
+
+  if (!practicanteId) {
+    console.error(`No se encontró el practicante para la asistencia (${a.dni}).`)
+    continue
+  }
+
+  const [row, isNew] = await Asistencia.findOrCreate({
+    where: { practicante_id: practicanteId, fecha: a.fecha },
+    defaults: {
+      practicante_id: practicanteId,
+      fecha: a.fecha,
+      hora_entrada: a.hora_entrada ?? null,
+      hora_salida: a.hora_salida ?? null,
+      estado: a.estado || 'PENDIENTE',
+      observacion: a.observacion ?? null
+    }
+  })
+
+  if (isNew) createdAsistencias++
+  else skippedAsistencias++
 }
 
 let createdTrabajadores = 0
@@ -125,6 +156,7 @@ for (const u of usuarios) {
 console.log(
   `Seed completado: ${createdFacultades} facultades, ` +
     `${created} practicantes (${skipped} ya existentes), ` +
+    `${createdAsistencias} asistencias (${skippedAsistencias} ya existentes), ` +
     `${createdTrabajadores} trabajadores, ` +
     `${createdUsuarios} usuarios (${skippedUsuarios} ya existentes).`
 )
