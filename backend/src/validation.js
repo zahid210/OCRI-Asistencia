@@ -1,5 +1,6 @@
 export const LIMITS = {
   nombre: 100,
+  nombre_facultad: 150,
   apellidos: 150,
   codigo_alumno: 30,
   codigo_trabajador: 30,
@@ -52,9 +53,4 @@ export function passwordError(value) {
     return `La contraseña no puede superar ${LIMITS.password.max} caracteres.`
   }
   return null
-}
-
-export function trimOrNull(value) {
-  const v = String(value ?? '').trim()
-  return v === '' ? null : v
 }

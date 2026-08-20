@@ -3,13 +3,13 @@ import bcrypt from 'bcryptjs'
 import { Facultad, Practicante, Trabajador, Usuario } from '../db.js'
 import {
   ENUMS,
+  LIMITS,
   isDni,
   isCiclo,
   toCiclo,
   isInEnum,
   lengthError,
-  passwordError,
-  trimOrNull
+  passwordError
 } from '../validation.js'
 
 const router = Router()
@@ -106,9 +106,9 @@ router.get('/practicantes', async (_req, res) => {
 
 router.post('/practicantes', async (req, res) => {
   try {
-    const nombre = textOrThrow('nombre', req.body, { label: 'Nombre', max: 100, required: true })
-    const apellidos = textOrThrow('apellidos', req.body, { label: 'Apellidos', max: 150, required: true })
-    const codigoAlumno = textOrThrow('codigo_alumno', req.body, { label: 'Código de alumno', max: 30, required: true })
+    const nombre = textOrThrow('nombre', req.body, { label: 'Nombre', max: LIMITS.nombre, required: true })
+    const apellidos = textOrThrow('apellidos', req.body, { label: 'Apellidos', max: LIMITS.apellidos, required: true })
+    const codigoAlumno = textOrThrow('codigo_alumno', req.body, { label: 'Código de alumno', max: LIMITS.codigo_alumno, required: true })
 
     const row = await Practicante.create({
       dni: dniOrThrow(req.body),
@@ -130,13 +130,13 @@ router.put('/practicantes/:id', async (req, res) => {
     const changes = {}
     if (req.body.dni !== undefined) changes.dni = dniOrThrow(req.body)
     if (req.body.nombre !== undefined) {
-      changes.nombre = textOrThrow('nombre', req.body, { label: 'Nombre', max: 100, required: false })
+      changes.nombre = textOrThrow('nombre', req.body, { label: 'Nombre', max: LIMITS.nombre, required: false })
     }
     if (req.body.apellidos !== undefined) {
-      changes.apellidos = textOrThrow('apellidos', req.body, { label: 'Apellidos', max: 150, required: false })
+      changes.apellidos = textOrThrow('apellidos', req.body, { label: 'Apellidos', max: LIMITS.apellidos, required: false })
     }
     if (req.body.codigo_alumno !== undefined) {
-      changes.codigo_alumno = textOrThrow('codigo_alumno', req.body, { label: 'Código de alumno', max: 30, required: false })
+      changes.codigo_alumno = textOrThrow('codigo_alumno', req.body, { label: 'Código de alumno', max: LIMITS.codigo_alumno, required: false })
     }
     if (req.body.facultad_id !== undefined) changes.facultad_id = idOrThrow('facultad_id', req.body)
     const ciclo = cicloOrThrow(req.body)
@@ -177,8 +177,8 @@ router.get('/facultades', async (_req, res) => {
 router.post('/facultades', async (req, res) => {
   try {
     const row = await Facultad.create({
-      nombre: textOrThrow('nombre', req.body, { label: 'Nombre', max: 150, required: true }),
-      abreviatura: textOrThrow('abreviatura', req.body, { label: 'Abreviatura', max: 20, required: false }),
+      nombre: textOrThrow('nombre', req.body, { label: 'Nombre', max: LIMITS.nombre_facultad, required: true }),
+      abreviatura: textOrThrow('abreviatura', req.body, { label: 'Abreviatura', max: LIMITS.abreviatura, required: false }),
       estado: estadoOrThrow(ENUMS.facultadEstado, req.body, 'ACTIVO')
     })
     res.status(201).json({ success: true, data: row })
@@ -191,10 +191,10 @@ router.put('/facultades/:id', async (req, res) => {
   try {
     const changes = {}
     if (req.body.nombre !== undefined) {
-      changes.nombre = textOrThrow('nombre', req.body, { label: 'Nombre', max: 150, required: false })
+      changes.nombre = textOrThrow('nombre', req.body, { label: 'Nombre', max: LIMITS.nombre_facultad, required: false })
     }
     if (req.body.abreviatura !== undefined) {
-      changes.abreviatura = textOrThrow('abreviatura', req.body, { label: 'Abreviatura', max: 20, required: false })
+      changes.abreviatura = textOrThrow('abreviatura', req.body, { label: 'Abreviatura', max: LIMITS.abreviatura, required: false })
     }
     const estado = estadoOrThrow(ENUMS.facultadEstado, req.body)
     if (estado !== undefined) changes.estado = estado
@@ -233,11 +233,11 @@ router.post('/trabajadores', async (req, res) => {
   try {
     const row = await Trabajador.create({
       dni: dniOrThrow(req.body),
-      nombre: textOrThrow('nombre', req.body, { label: 'Nombre', max: 100, required: true }),
-      apellidos: textOrThrow('apellidos', req.body, { label: 'Apellidos', max: 150, required: true }),
-      codigo_trabajador: textOrThrow('codigo_trabajador', req.body, { label: 'Código de trabajador', max: 30, required: false }),
-      cargo: textOrThrow('cargo', req.body, { label: 'Cargo', max: 100, required: false }),
-      area: textOrThrow('area', req.body, { label: 'Área', max: 150, required: false }),
+      nombre: textOrThrow('nombre', req.body, { label: 'Nombre', max: LIMITS.nombre, required: true }),
+      apellidos: textOrThrow('apellidos', req.body, { label: 'Apellidos', max: LIMITS.apellidos, required: true }),
+      codigo_trabajador: textOrThrow('codigo_trabajador', req.body, { label: 'Código de trabajador', max: LIMITS.codigo_trabajador, required: false }),
+      cargo: textOrThrow('cargo', req.body, { label: 'Cargo', max: LIMITS.cargo, required: false }),
+      area: textOrThrow('area', req.body, { label: 'Área', max: LIMITS.area, required: false }),
       estado: estadoOrThrow(ENUMS.trabajadorEstado, req.body, 'ACTIVO')
     })
     res.status(201).json({ success: true, data: row })
@@ -251,19 +251,19 @@ router.put('/trabajadores/:id', async (req, res) => {
     const changes = {}
     if (req.body.dni !== undefined) changes.dni = dniOrThrow(req.body)
     if (req.body.nombre !== undefined) {
-      changes.nombre = textOrThrow('nombre', req.body, { label: 'Nombre', max: 100, required: false })
+      changes.nombre = textOrThrow('nombre', req.body, { label: 'Nombre', max: LIMITS.nombre, required: false })
     }
     if (req.body.apellidos !== undefined) {
-      changes.apellidos = textOrThrow('apellidos', req.body, { label: 'Apellidos', max: 150, required: false })
+      changes.apellidos = textOrThrow('apellidos', req.body, { label: 'Apellidos', max: LIMITS.apellidos, required: false })
     }
     if (req.body.codigo_trabajador !== undefined) {
-      changes.codigo_trabajador = textOrThrow('codigo_trabajador', req.body, { label: 'Código de trabajador', max: 30, required: false })
+      changes.codigo_trabajador = textOrThrow('codigo_trabajador', req.body, { label: 'Código de trabajador', max: LIMITS.codigo_trabajador, required: false })
     }
     if (req.body.cargo !== undefined) {
-      changes.cargo = textOrThrow('cargo', req.body, { label: 'Cargo', max: 100, required: false })
+      changes.cargo = textOrThrow('cargo', req.body, { label: 'Cargo', max: LIMITS.cargo, required: false })
     }
     if (req.body.area !== undefined) {
-      changes.area = textOrThrow('area', req.body, { label: 'Área', max: 150, required: false })
+      changes.area = textOrThrow('area', req.body, { label: 'Área', max: LIMITS.area, required: false })
     }
     const estado = estadoOrThrow(ENUMS.trabajadorEstado, req.body)
     if (estado !== undefined) changes.estado = estado
@@ -303,7 +303,7 @@ router.get('/usuarios', async (_req, res) => {
 
 router.post('/usuarios', async (req, res) => {
   try {
-    const usuario = textOrThrow('usuario', req.body, { label: 'Usuario', max: 50, required: true })
+    const usuario = textOrThrow('usuario', req.body, { label: 'Usuario', max: LIMITS.usuario, required: true })
     const password = String(req.body.password ?? '')
     const pwdError = passwordError(password)
     if (pwdError) throw new ApiError(400, pwdError)
@@ -326,7 +326,7 @@ router.put('/usuarios/:id', async (req, res) => {
   try {
     const changes = {}
     if (req.body.usuario !== undefined) {
-      changes.usuario = textOrThrow('usuario', req.body, { label: 'Usuario', max: 50, required: false })
+      changes.usuario = textOrThrow('usuario', req.body, { label: 'Usuario', max: LIMITS.usuario, required: false })
     }
     if (req.body.password) {
       const pwdError = passwordError(req.body.password)
@@ -342,6 +342,16 @@ router.put('/usuarios/:id', async (req, res) => {
     const estado = estadoOrThrow(ENUMS.usuarioEstado, req.body)
     if (estado !== undefined) changes.estado = estado
 
+    const isSelf = Number(req.params.id) === Number(req.user.id)
+    if (isSelf) {
+      if (changes.estado === 'INACTIVO') {
+        throw new ApiError(400, 'No puedes desactivar tu propia cuenta.')
+      }
+      if (changes.rol && changes.rol !== 'ADMIN') {
+        throw new ApiError(400, 'No puedes quitarte el rol de administrador.')
+      }
+    }
+
     await Usuario.update(changes, { where: { id: req.params.id } })
     const row = await Usuario.findByPk(req.params.id, { include: [{ model: Trabajador }] })
     if (!row) throw new ApiError(404, 'Usuario no encontrado.')
@@ -353,6 +363,9 @@ router.put('/usuarios/:id', async (req, res) => {
 
 router.delete('/usuarios/:id', async (req, res) => {
   try {
+    if (Number(req.params.id) === Number(req.user.id)) {
+      throw new ApiError(400, 'No puedes eliminar tu propia cuenta.')
+    }
     const deleted = await Usuario.destroy({ where: { id: req.params.id } })
     if (!deleted) throw new ApiError(404, 'Usuario no encontrado.')
     res.json({ success: true })

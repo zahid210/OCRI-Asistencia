@@ -122,6 +122,14 @@ const activeTabLabel = computed(
   () => tabs.find((t) => t.key === activeTab.value)?.label ?? ''
 )
 
+const isSelfEditing = computed(
+  () =>
+    activeTab.value === 'usuarios' &&
+    editingId.value &&
+    props.currentUser &&
+    Number(editingId.value) === Number(props.currentUser.id)
+)
+
 function authHeaders() {
   const token = localStorage.getItem(TOKEN_KEY)
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -265,10 +273,6 @@ function cancelConfirm() {
 }
 
 async function toggleEstado(row) {
-  if (isSelf(row)) {
-    error.value = 'No puedes desactivar tu propia cuenta.'
-    return
-  }
   const nuevo = row.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'
   try {
     await api(`/api/admin/${activeTab.value}/${row.id}`, {
@@ -380,7 +384,11 @@ function isSelf(row) {
                 </span>
               </span>
 
-              <select v-if="f.type === 'select'" v-model="form[f.key]">
+              <select
+                v-if="f.type === 'select'"
+                v-model="form[f.key]"
+                :disabled="isSelfEditing && (f.key === 'estado' || f.key === 'rol')"
+              >
                 <option v-if="f.allowEmpty" value="">— Sin asignar —</option>
                 <template v-if="f.options === 'facultades'">
                   <option v-for="o in lists.facultades" :key="o.id" :value="o.id">
@@ -532,7 +540,8 @@ function isSelf(row) {
 
 .admin-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
   font-weight: 300;
 }
@@ -540,6 +549,7 @@ function isSelf(row) {
 .admin-table th {
   position: sticky;
   top: 0;
+  z-index: 1;
   text-align: left;
   padding: 12px 16px;
   font-size: 11px;
@@ -547,15 +557,17 @@ function isSelf(row) {
   letter-spacing: .08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, .5);
-  background: rgba(22, 22, 22, .92);
-  backdrop-filter: blur(8px);
+  background: #181818;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 .admin-table td {
-  padding: 11px 16px;
-  border-top: 1px solid rgba(255, 255, 255, .07);
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 .admin-table tbody tr {
@@ -567,13 +579,13 @@ function isSelf(row) {
 }
 
 .admin-actions-col {
-  text-align: right;
+  text-align: left;
 }
 
 .admin-actions {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .admin-badge {
