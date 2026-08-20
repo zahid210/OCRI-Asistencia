@@ -1,7 +1,33 @@
 [
-  {
-    "nombre": "Ingenieria de Sistemas",
-    "abreviatura": null,
-    "estado": "ACTIVO"
-  }
+  { "nombre": "Administración de Empresas", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Agronomía", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Antropología", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Arquitectura", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ciencias de la Comunicación", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Contabilidad", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Derecho y Ciencias Políticas", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Economía", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Educación Ciencias Matemáticas e Informática", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Educación Ciencias Naturales y Ambientales", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Educación Física y Psicomotricidad", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Educación Filosofía, Ciencias Sociales y Relaciones Humanas", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Educación Inicial", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Educación Lengua, Literatura y Comunicación", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Educación Primaria", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Enfermería", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería Civil", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería de Minas", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería de Sistemas", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería Eléctrica y Electrónica", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería en Industrias Alimentarias", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería Forestal y Ambiental", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería Mecánica", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería Metalúrgica y de Materiales", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería Química", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería Química Ambiental", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Ingeniería Química Industrial", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Medicina Humana", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Sociología", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Trabajo Social", "abreviatura": null, "estado": "ACTIVO" },
+  { "nombre": "Zootecnia", "abreviatura": null, "estado": "ACTIVO" }
 ]

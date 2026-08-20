@@ -458,13 +458,13 @@ function isSelf(row) {
 
           <div v-if="activeTab === 'asistencias'" class="asist-filters">
             <input v-model="asistFiltros.fecha" type="date" class="asist-input" title="Fecha" />
-            <select v-model="asistFiltros.facultad_id" class="asist-input">
+            <select v-model="asistFiltros.facultad_id" class="asist-input asist-select">
               <option value="">Todas las facultades</option>
               <option v-for="f in lists.facultades" :key="f.id" :value="f.id">
                 {{ f.nombre }}
               </option>
             </select>
-            <select v-model="asistFiltros.estado" class="asist-input">
+            <select v-model="asistFiltros.estado" class="asist-input asist-select">
               <option value="">Todos los estados</option>
               <option v-for="e in ['PENDIENTE', 'COMPLETA', 'AUSENTE', 'JUSTIFICADA']" :key="e">
                 {{ e }}
@@ -474,6 +474,7 @@ function isSelf(row) {
               v-model="asistFiltros.dni"
               type="text"
               class="asist-input"
+              size="8"
               maxlength="8"
               placeholder="DNI"
             />
@@ -746,12 +747,29 @@ function isSelf(row) {
   padding: 7px 12px;
   border: 1px solid rgba(255, 255, 255, .25);
   border-radius: 8px;
-  background: #1b1b1b;
+  background-color: #1b1b1b;
   color: rgba(255, 255, 255, .85);
   font-size: 13px;
   font-weight: 300;
   outline: none;
   transition: border-color .15s ease;
+}
+
+.asist-input.asist-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 11px 7px;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+.asist-input option {
+  background: #181818;
+  color: #fff;
 }
 
 .asist-input:focus {
