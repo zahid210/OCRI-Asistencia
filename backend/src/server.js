@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 import sequelize, { Practicante, Asistencia, Trabajador, Usuario } from './db.js'
 import { authMiddleware, requireAdmin, JWT_SECRET } from './auth.js'
 import adminRouter from './routes/admin.js'
+import { runBootstrap } from './bootstrap.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -311,6 +312,27 @@ app.use(express.static(path.join(__dirname, '../../frontend/dist')))
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'))
 })
+
+try {
+  const bootstrap = await runBootstrap()
+  if (bootstrap.seeded) {
+    console.log(
+      `[bootstrap] Base de datos inicializada automáticamente: ` +
+        `${bootstrap.facultades} facultades, ` +
+        `${bootstrap.practicantes.created} practicantes, ` +
+        `${bootstrap.asistencias.created} asistencias, ` +
+        `${bootstrap.trabajadores} trabajadores, ` +
+        `${bootstrap.usuarios.created} usuarios.`
+    )
+  } else {
+    console.log(
+      `[bootstrap] Base de datos lista (esquema existente${bootstrap.dbCreated ? ', BD creada' : ''}).`
+    )
+  }
+} catch (err) {
+  console.error('[bootstrap] No se pudo inicializar la base de datos:', err.message)
+  process.exit(1)
+}
 
 app.listen(PORT, () => {
   console.log(`OCRI API ejecutándose en http://localhost:${PORT}`)
