@@ -374,7 +374,7 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <form v-else class="login-form" @submit.prevent="login">
+      <form v-else-if="!user" class="login-form" @submit.prevent="login">
         <h1 class="login-title">Iniciar sesión</h1>
 
         <label ref="usuarioField" class="login-field">
@@ -408,27 +408,29 @@ onBeforeUnmount(() => {
     <AdminPanel v-if="user && view === 'admin'" />
 
     <div v-if="user" class="session-bar">
-      <div v-if="user.rol === 'ADMIN'" class="view-switcher">
-        <button
-          type="button"
-          class="view-switch-btn"
-          :class="{ active: view === 'attendance' }"
-          @click="view = 'attendance'"
-        >
-          Asistencia
-        </button>
-        <button
-          type="button"
-          class="view-switch-btn"
-          :class="{ active: view === 'admin' }"
-          @click="view = 'admin'"
-        >
-          Panel
-        </button>
+      <div class="session-group">
+        <div v-if="user.rol === 'ADMIN'" class="view-switcher">
+          <button
+            type="button"
+            class="view-switch-btn"
+            :class="{ active: view === 'attendance' }"
+            @click="view = 'attendance'"
+          >
+            Asistencia
+          </button>
+          <button
+            type="button"
+            class="view-switch-btn"
+            :class="{ active: view === 'admin' }"
+            @click="view = 'admin'"
+          >
+            Panel
+          </button>
+        </div>
+        <span class="session-user">
+          {{ user.trabajador?.nombre }} {{ user.trabajador?.apellidos }}
+        </span>
       </div>
-      <span class="session-user">
-        {{ user.trabajador?.nombre }} {{ user.trabajador?.apellidos }}
-      </span>
       <button class="logout-button" type="button" @click="logout">
         Cerrar sesión
       </button>

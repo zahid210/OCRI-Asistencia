@@ -335,6 +335,15 @@ body { overflow: hidden; }
   display: flex;
   align-items: center;
   gap: 14px;
+  z-index: 60;
+}
+
+.session-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-right: 14px;
+  border-right: 1px solid rgba(255, 255, 255, .2);
 }
 
 .view-switcher {
@@ -558,6 +567,11 @@ body { overflow: hidden; }
     top: max(16px, env(safe-area-inset-top));
     right: 16px;
     gap: 10px;
+  }
+
+  .session-group {
+    gap: 10px;
+    padding-right: 10px;
   }
 
   .session-user {
