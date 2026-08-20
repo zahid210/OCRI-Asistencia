@@ -1,5 +1,9 @@
 import jwt from 'jsonwebtoken'
 
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET debe configurarse en producción.')
+}
+
 export const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me'
 
 export function authMiddleware(req, res, next) {

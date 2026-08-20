@@ -102,12 +102,17 @@ for (const u of usuarios) {
     ? trabajadorByDni.get(String(u.trabajador_dni))
     : null
 
+  const password =
+    u.usuario === 'admin' && process.env.ADMIN_PASSWORD
+      ? process.env.ADMIN_PASSWORD
+      : u.password
+
   const [, isNew] = await Usuario.findOrCreate({
     where: { usuario: u.usuario },
     defaults: {
       trabajador_id: trabajadorId,
       usuario: u.usuario,
-      password_hash: await bcrypt.hash(u.password, 10),
+      password_hash: await bcrypt.hash(password, 10),
       rol: u.rol || 'SUPERVISOR',
       estado: u.estado || 'ACTIVO'
     }

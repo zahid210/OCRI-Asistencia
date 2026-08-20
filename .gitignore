@@ -2,3 +2,7 @@ node_modules
 dist
 .env
 *.env
+.idea
+.vscode
+*.log
+.DS_Store

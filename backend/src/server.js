@@ -45,6 +45,34 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '10kb' }))
 
+const loginAttempts = new Map()
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const LOGIN_MAX_ATTEMPTS = 20
+
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of loginAttempts) {
+    if (now > entry.resetAt) loginAttempts.delete(key)
+  }
+}, LOGIN_WINDOW_MS).unref()
+
+function loginRateLimit(req, res, next) {
+  const key = req.ip ?? 'unknown'
+  const now = Date.now()
+  const entry = loginAttempts.get(key)
+
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS })
+    return next()
+  }
+
+  entry.count += 1
+  if (entry.count > LOGIN_MAX_ATTEMPTS) {
+    return res.status(429).json({ message: 'Demasiados intentos. Intente más tarde.' })
+  }
+  next()
+}
+
 function limaDateParts() {
   const parts = clockFormatter.formatToParts(new Date())
 
@@ -92,7 +120,7 @@ function publicUserData(usuario) {
   }
 }
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginRateLimit, async (req, res) => {
   const usuario = String(req.body?.usuario ?? '').trim()
   const password = String(req.body?.password ?? '')
 
@@ -273,6 +301,10 @@ app.get('/api/health', async (_req, res) => {
 })
 
 app.use('/api/admin', authMiddleware, requireAdmin, adminRouter)
+
+app.use('/api', (_req, res) => {
+  res.status(404).json({ message: 'Ruta no encontrada.' })
+})
 
 app.use(express.static(path.join(__dirname, '../../frontend/dist')))
 

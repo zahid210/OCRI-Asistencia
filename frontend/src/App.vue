@@ -117,11 +117,23 @@ function logout() {
   loginPassword.value = ''
 }
 
+function handleSessionExpired() {
+  logout()
+  pushNotification({
+    title: 'Sesión expirada',
+    name: 'Vuelva a iniciar sesión.',
+    dni: '',
+    error: true
+  })
+}
+
 watch(user, async (value) => {
   await nextTick()
   if (value) {
     dniInput.value?.focus()
+    syncTime()
   } else {
+    clearTimeout(clockTimer)
     usuarioInput.value?.focus()
   }
 })
@@ -300,7 +312,6 @@ function startShake() {
 
 onMounted(() => {
   restoreSession()
-  syncTime()
 })
 
 onBeforeUnmount(() => {
@@ -405,7 +416,13 @@ onBeforeUnmount(() => {
       </form>
     </template>
 
-    <AdminPanel v-if="user && view === 'admin'" />
+    <Transition name="panel">
+      <AdminPanel
+        v-if="user && view === 'admin'"
+        :current-user="user"
+        @session-expired="handleSessionExpired"
+      />
+    </Transition>
 
     <div v-if="user" class="session-bar">
       <div class="session-group">

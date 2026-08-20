@@ -1,6 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
+const props = defineProps({
+  currentUser: { type: Object, default: null }
+})
+
+const emit = defineEmits(['session-expired'])
+
 const TOKEN_KEY = 'ocri_token'
 
 const tabs = [
@@ -130,6 +136,10 @@ async function api(path, options = {}) {
       ...(options.headers || {})
     }
   })
+  if (response.status === 401) {
+    emit('session-expired')
+    throw new Error('Sesión expirada. Inicie sesión nuevamente.')
+  }
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(data.message || 'Error del servidor.')
   return data
@@ -204,6 +214,19 @@ async function saveForm() {
     if (tab === 'usuarios' && !editingId.value && !payload.password) {
       throw new Error('La contraseña es obligatoria.')
     }
+    if (
+      tab === 'usuarios' &&
+      editingId.value &&
+      props.currentUser &&
+      Number(editingId.value) === Number(props.currentUser.id)
+    ) {
+      if (payload.estado === 'INACTIVO') {
+        throw new Error('No puedes desactivar tu propia cuenta.')
+      }
+      if (payload.rol && payload.rol !== 'ADMIN') {
+        throw new Error('No puedes quitarte el rol de administrador.')
+      }
+    }
 
     await api(
       editingId.value ? `/api/admin/${tab}/${editingId.value}` : `/api/admin/${tab}`,
@@ -242,6 +265,10 @@ function cancelConfirm() {
 }
 
 async function toggleEstado(row) {
+  if (isSelf(row)) {
+    error.value = 'No puedes desactivar tu propia cuenta.'
+    return
+  }
   const nuevo = row.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'
   try {
     await api(`/api/admin/${activeTab.value}/${row.id}`, {
@@ -252,6 +279,14 @@ async function toggleEstado(row) {
   } catch (e) {
     error.value = e.message
   }
+}
+
+function isSelf(row) {
+  return (
+    activeTab.value === 'usuarios' &&
+    props.currentUser &&
+    Number(row.id) === Number(props.currentUser.id)
+  )
 }
 </script>
 
@@ -302,13 +337,18 @@ async function toggleEstado(row) {
                 <td class="admin-actions">
                   <button class="admin-btn" @click="openEdit(row)">Editar</button>
                   <button
+                    v-if="!isSelf(row)"
                     class="admin-btn"
                     :title="row.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'"
                     @click="toggleEstado(row)"
                   >
                     {{ row.estado === 'ACTIVO' ? 'Desactivar' : 'Activar' }}
                   </button>
-                  <button class="admin-btn admin-btn-danger" @click="requestDelete(row)">
+                  <button
+                    v-if="!isSelf(row)"
+                    class="admin-btn admin-btn-danger"
+                    @click="requestDelete(row)"
+                  >
                     Eliminar
                   </button>
                 </td>
