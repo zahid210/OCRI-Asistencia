@@ -11,10 +11,20 @@ const TOKEN_KEY = 'ocri_token'
 
 const tabs = [
   { key: 'practicantes', label: 'Practicantes' },
+  { key: 'asistencias', label: 'Asistencias' },
   { key: 'facultades', label: 'Facultades' },
   { key: 'trabajadores', label: 'Trabajadores' },
   { key: 'usuarios', label: 'Usuarios' }
 ]
+
+const CRUD_TABS = ['practicantes', 'facultades', 'trabajadores', 'usuarios']
+
+function formatFecha(value) {
+  if (!value) return '—'
+  const [y, m, d] = String(value).split('-')
+  if (!y || !m || !d) return value
+  return `${Number(d)}/${Number(m)}/${y}`
+}
 
 const columns = {
   practicantes: [
@@ -24,6 +34,27 @@ const columns = {
     { key: 'codigo_alumno', label: 'Código' },
     { key: 'facultad', label: 'Facultad', render: (r) => r.Facultad?.nombre || '—' },
     { key: 'ciclo', label: 'Ciclo' },
+    { key: 'estado', label: 'Estado' }
+  ],
+  asistencias: [
+    { key: 'fecha', label: 'Fecha', render: (r) => formatFecha(r.fecha) },
+    {
+      key: 'practicante',
+      label: 'Practicante',
+      render: (r) =>
+        r.Practicante
+          ? `${r.Practicante.apellidos}, ${r.Practicante.nombre}`
+          : '—'
+    },
+    { key: 'dni', label: 'DNI', render: (r) => r.Practicante?.dni ?? '—' },
+    {
+      key: 'facultad',
+      label: 'Facultad',
+      render: (r) => r.Practicante?.Facultad?.nombre ?? '—'
+    },
+    { key: 'ciclo', label: 'Ciclo', render: (r) => r.Practicante?.ciclo ?? '—' },
+    { key: 'hora_entrada', label: 'Entrada' },
+    { key: 'hora_salida', label: 'Salida' },
     { key: 'estado', label: 'Estado' }
   ],
   facultades: [
@@ -76,6 +107,7 @@ const fieldConfigs = {
       options: ['ACTIVO', 'INACTIVO', 'EGRESADO', 'RETIRADO']
     }
   ],
+  asistencias: [],
   facultades: [
     { key: 'nombre', label: 'Nombre', type: 'text', required: true, maxlength: 150 },
     { key: 'abreviatura', label: 'Abreviatura', type: 'text', maxlength: 20 },
@@ -105,10 +137,22 @@ const error = ref('')
 
 const lists = ref({
   practicantes: [],
+  asistencias: [],
   facultades: [],
   trabajadores: [],
   usuarios: []
 })
+
+const asistFiltros = ref({
+  fecha: '',
+  facultad_id: '',
+  estado: '',
+  dni: ''
+})
+const asistPage = ref(1)
+const asistTotal = ref(0)
+const asistPages = ref(1)
+const asistExporting = ref(false)
 
 const formOpen = ref(false)
 const editingId = ref(null)
@@ -128,6 +172,12 @@ const isSelfEditing = computed(
     editingId.value &&
     props.currentUser &&
     Number(editingId.value) === Number(props.currentUser.id)
+)
+
+const currentCount = computed(() =>
+  activeTab.value === 'asistencias'
+    ? asistTotal.value
+    : lists.value[activeTab.value]?.length ?? 0
 )
 
 function authHeaders() {
@@ -158,9 +208,9 @@ async function loadAll() {
   error.value = ''
   try {
     const entries = await Promise.all(
-      tabs.map(async (t) => {
-        const { data } = await api(`/api/admin/${t.key}`)
-        return [t.key, data]
+      CRUD_TABS.map(async (t) => {
+        const { data } = await api(`/api/admin/${t}`)
+        return [t, data]
       })
     )
     lists.value = Object.fromEntries(entries)
@@ -171,13 +221,86 @@ async function loadAll() {
   }
 }
 
+async function loadAsistencias() {
+  loading.value = true
+  error.value = ''
+  try {
+    const params = new URLSearchParams()
+    params.set('page', asistPage.value)
+    if (asistFiltros.value.fecha) params.set('fecha', asistFiltros.value.fecha)
+    if (asistFiltros.value.facultad_id) params.set('facultad_id', asistFiltros.value.facultad_id)
+    if (asistFiltros.value.estado) params.set('estado', asistFiltros.value.estado)
+    if (asistFiltros.value.dni) params.set('dni', asistFiltros.value.dni)
+
+    const { data, total, pages } = await api(`/api/admin/asistencias?${params}`)
+    lists.value.asistencias = data
+    asistTotal.value = total
+    asistPages.value = pages
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    loading.value = false
+  }
+}
+
+function applyAsistFiltros() {
+  asistPage.value = 1
+  loadAsistencias()
+}
+
+function clearAsistFiltros() {
+  asistFiltros.value = { fecha: '', facultad_id: '', estado: '', dni: '' }
+  asistPage.value = 1
+  loadAsistencias()
+}
+
+async function exportCsv() {
+  if (asistExporting.value) return
+  asistExporting.value = true
+  try {
+    const params = new URLSearchParams()
+    if (asistFiltros.value.fecha) params.set('fecha', asistFiltros.value.fecha)
+    if (asistFiltros.value.facultad_id) params.set('facultad_id', asistFiltros.value.facultad_id)
+    if (asistFiltros.value.estado) params.set('estado', asistFiltros.value.estado)
+    if (asistFiltros.value.dni) params.set('dni', asistFiltros.value.dni)
+
+    const response = await fetch(`/api/admin/asistencias/export?${params}`, {
+      headers: authHeaders()
+    })
+    if (response.status === 401) {
+      emit('session-expired')
+      throw new Error('Sesión expirada. Inicie sesión nuevamente.')
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      throw new Error(data.message || 'No se pudo exportar.')
+    }
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `asistencias-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    asistExporting.value = false
+  }
+}
+
 onMounted(loadAll)
 
 function selectTab(tab) {
   activeTab.value = tab
+  if (tab === 'asistencias') {
+    asistPage.value = 1
+    loadAsistencias()
+  }
 }
 
 function openCreate() {
+  if (activeTab.value === 'asistencias') return
   editingId.value = null
   form.value = {}
   if (fieldConfigs[activeTab.value].some((f) => f.key === 'estado')) {
@@ -316,8 +439,47 @@ function isSelf(row) {
 
       <div class="admin-card">
         <div class="admin-card-head">
-          <span class="admin-count">{{ lists[activeTab].length }} registro(s)</span>
-          <button type="button" class="admin-btn admin-btn-primary" @click="openCreate">
+          <span class="admin-count">{{ currentCount }} registro(s)</span>
+
+          <div v-if="activeTab === 'asistencias'" class="asist-filters">
+            <input v-model="asistFiltros.fecha" type="date" class="asist-input" title="Fecha" />
+            <select v-model="asistFiltros.facultad_id" class="asist-input">
+              <option value="">Todas las facultades</option>
+              <option v-for="f in lists.facultades" :key="f.id" :value="f.id">
+                {{ f.nombre }}
+              </option>
+            </select>
+            <select v-model="asistFiltros.estado" class="asist-input">
+              <option value="">Todos los estados</option>
+              <option v-for="e in ['PENDIENTE', 'COMPLETA', 'AUSENTE', 'JUSTIFICADA']" :key="e">
+                {{ e }}
+              </option>
+            </select>
+            <input
+              v-model="asistFiltros.dni"
+              type="text"
+              class="asist-input"
+              maxlength="8"
+              placeholder="DNI"
+            />
+            <button type="button" class="admin-btn" @click="applyAsistFiltros">Buscar</button>
+            <button type="button" class="admin-btn" @click="clearAsistFiltros">Limpiar</button>
+            <button
+              type="button"
+              class="admin-btn admin-btn-primary"
+              :disabled="asistExporting"
+              @click="exportCsv"
+            >
+              {{ asistExporting ? 'Exportando…' : 'Exportar CSV' }}
+            </button>
+          </div>
+
+          <button
+            v-else
+            type="button"
+            class="admin-btn admin-btn-primary"
+            @click="openCreate"
+          >
             Nuevo
           </button>
         </div>
@@ -327,7 +489,7 @@ function isSelf(row) {
             <thead>
               <tr>
                 <th v-for="c in columns[activeTab]" :key="c.key">{{ c.label }}</th>
-                <th class="admin-actions-col">Acciones</th>
+                <th v-if="activeTab !== 'asistencias'" class="admin-actions-col">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -338,7 +500,7 @@ function isSelf(row) {
                   </span>
                   <span v-else>{{ c.render ? c.render(row) : row[c.key] ?? '—' }}</span>
                 </td>
-                <td class="admin-actions">
+                <td v-if="activeTab !== 'asistencias'" class="admin-actions">
                   <button class="admin-btn" @click="openEdit(row)">Editar</button>
                   <button
                     v-if="!isSelf(row)"
@@ -361,8 +523,28 @@ function isSelf(row) {
           </table>
         </div>
 
+        <div v-if="activeTab === 'asistencias' && asistPages > 1" class="admin-pagination">
+          <button
+            type="button"
+            class="admin-btn"
+            :disabled="asistPage <= 1"
+            @click="asistPage--; loadAsistencias()"
+          >
+            ‹ Anterior
+          </button>
+          <span class="admin-page-info">Página {{ asistPage }} de {{ asistPages }}</span>
+          <button
+            type="button"
+            class="admin-btn"
+            :disabled="asistPage >= asistPages"
+            @click="asistPage++; loadAsistencias()"
+          >
+            Siguiente ›
+          </button>
+        </div>
+
         <p v-if="loading" class="admin-note">Cargando…</p>
-        <p v-else-if="!lists[activeTab].length" class="admin-note">Sin registros.</p>
+        <p v-else-if="!currentCount" class="admin-note">Sin registros.</p>
       </div>
     </div>
 
@@ -520,8 +702,10 @@ function isSelf(row) {
 
 .admin-card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   padding: 14px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, .1);
 }
@@ -531,6 +715,52 @@ function isSelf(row) {
   font-weight: 200;
   letter-spacing: .04em;
   color: rgba(255, 255, 255, .6);
+}
+
+.asist-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.asist-input {
+  color-scheme: dark;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, .25);
+  border-radius: 8px;
+  background: #1b1b1b;
+  color: rgba(255, 255, 255, .85);
+  font-size: 13px;
+  font-weight: 300;
+  outline: none;
+  transition: border-color .15s ease;
+}
+
+.asist-input:focus {
+  border-color: rgba(255, 255, 255, .55);
+}
+
+.asist-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: .6;
+  filter: invert(1);
+}
+
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+}
+
+.admin-page-info {
+  font-size: 12px;
+  font-weight: 200;
+  letter-spacing: .04em;
+  color: rgba(255, 255, 255, .5);
 }
 
 .admin-table-wrap {
@@ -598,10 +828,17 @@ function isSelf(row) {
   letter-spacing: .05em;
 }
 
-.admin-badge.ACTIVO {
+.admin-badge.ACTIVO,
+.admin-badge.COMPLETA {
   color: #9fe8b1;
   border-color: rgba(159, 232, 177, .4);
   background: rgba(159, 232, 177, .08);
+}
+
+.admin-badge.JUSTIFICADA {
+  color: #a3c4ff;
+  border-color: rgba(163, 196, 255, .4);
+  background: rgba(163, 196, 255, .08);
 }
 
 .admin-badge.INACTIVO,

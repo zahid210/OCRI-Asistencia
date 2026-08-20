@@ -1,6 +1,7 @@
 import { Router } from 'express'
+import { Op } from 'sequelize'
 import bcrypt from 'bcryptjs'
-import { Facultad, Practicante, Trabajador, Usuario } from '../db.js'
+import { Asistencia, Facultad, Practicante, Trabajador, Usuario } from '../db.js'
 import {
   ENUMS,
   LIMITS,
@@ -392,5 +393,129 @@ function sanitizeUsuario(u) {
       : null
   }
 }
+
+/* ------------------------- Asistencias ------------------------- */
+
+const ASIST_ESTADOS = ['PENDIENTE', 'COMPLETA', 'AUSENTE', 'JUSTIFICADA']
+
+function asistFilters(query) {
+  const where = {}
+
+  if (query.fecha) {
+    where.fecha = query.fecha
+  } else {
+    const range = {}
+    if (query.desde) range[Op.gte] = query.desde
+    if (query.hasta) range[Op.lte] = query.hasta
+    if (Object.keys(range).length) where.fecha = range
+  }
+
+  if (query.estado) {
+    if (!ASIST_ESTADOS.includes(query.estado)) throw new ApiError(400, 'Estado inválido.')
+    where.estado = query.estado
+  }
+
+  const practicanteWhere = {}
+  if (query.facultad_id) {
+    if (!Number.isInteger(Number(query.facultad_id))) throw new ApiError(400, 'Facultad inválida.')
+    practicanteWhere.facultad_id = Number(query.facultad_id)
+  }
+  if (query.dni) {
+    if (!isDni(query.dni)) throw new ApiError(400, 'DNI inválido (8 dígitos).')
+    practicanteWhere.dni = String(query.dni)
+  }
+  if (query.practicante_id) {
+    if (!Number.isInteger(Number(query.practicante_id))) throw new ApiError(400, 'Practicante inválido.')
+    practicanteWhere.id = Number(query.practicante_id)
+  }
+
+  return {
+    where,
+    include: [{ model: Practicante, where: practicanteWhere, include: [{ model: Facultad }] }]
+  }
+}
+
+router.get('/asistencias/export', async (req, res) => {
+  try {
+    const { where, include } = asistFilters(req.query)
+    const rows = await Asistencia.findAll({
+      where,
+      include,
+      order: [['fecha', 'ASC'], ['id', 'ASC']],
+      limit: 10000
+    })
+
+    const esc = (value) => {
+      const s = String(value ?? '')
+      return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    }
+
+    const header = [
+      'Fecha',
+      'DNI',
+      'Apellidos',
+      'Nombres',
+      'Código',
+      'Facultad',
+      'Ciclo',
+      'Entrada',
+      'Salida',
+      'Estado',
+      'Observación'
+    ]
+
+    const lines = rows.map((r) =>
+      [
+        r.fecha,
+        r.Practicante?.dni,
+        r.Practicante?.apellidos,
+        r.Practicante?.nombre,
+        r.Practicante?.codigo_alumno,
+        r.Practicante?.Facultad?.nombre,
+        r.Practicante?.ciclo,
+        r.hora_entrada,
+        r.hora_salida,
+        r.estado,
+        r.observacion
+      ]
+        .map(esc)
+        .join(';')
+    )
+
+    const csv = '\uFEFF' + [header.map(esc).join(';'), ...lines].join('\r\n')
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', 'attachment; filename="asistencias.csv"')
+    res.send(csv)
+  } catch (err) {
+    handleError(res, err)
+  }
+})
+
+router.get('/asistencias', async (req, res) => {
+  try {
+    const { where, include } = asistFilters(req.query)
+    const limit = Math.min(Number(req.query.limit) || 50, 200)
+    const page = Math.max(Number(req.query.page) || 1, 1)
+    const offset = (page - 1) * limit
+
+    const { rows, count } = await Asistencia.findAndCountAll({
+      where,
+      include,
+      order: [['fecha', 'DESC'], ['id', 'DESC']],
+      limit,
+      offset
+    })
+
+    res.json({
+      success: true,
+      data: rows,
+      total: count,
+      page,
+      pages: Math.max(Math.ceil(count / limit), 1)
+    })
+  } catch (err) {
+    handleError(res, err)
+  }
+})
 
 export default router
