@@ -337,6 +337,40 @@ body { overflow: hidden; }
   gap: 14px;
 }
 
+.view-switcher {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.view-switch-btn {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: rgba(255, 255, 255, .65);
+  font-family: 'Inter', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease;
+}
+
+.view-switch-btn:hover {
+  color: #fff;
+}
+
+.view-switch-btn.active {
+  background: rgba(255, 255, 255, .18);
+  color: #fff;
+}
+
 .session-user {
   font-size: 13px;
   font-weight: 200;
@@ -528,6 +562,15 @@ body { overflow: hidden; }
 
   .session-user {
     font-size: 12px;
+  }
+
+  .view-switcher {
+    gap: 2px;
+  }
+
+  .view-switch-btn {
+    padding: 5px 10px;
+    font-size: 11px;
   }
 
   .dni-input-shell { height: 64px; }

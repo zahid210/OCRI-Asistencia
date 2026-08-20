@@ -49,8 +49,7 @@ export const Practicante = sequelize.define(
     },
     facultad_id: {
       type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
-      references: { model: Facultad, key: 'id' }
+      allowNull: false
     },
     ciclo: { type: DataTypes.TINYINT.UNSIGNED, allowNull: true },
     estado: {
@@ -70,8 +69,7 @@ export const Asistencia = sequelize.define(
     id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
     practicante_id: {
       type: DataTypes.BIGINT.UNSIGNED,
-      allowNull: false,
-      references: { model: Practicante, key: 'id' }
+      allowNull: false
     },
     fecha: { type: DataTypes.DATEONLY, allowNull: false },
     hora_entrada: { type: DataTypes.TIME, allowNull: true },
@@ -126,8 +124,7 @@ export const Usuario = sequelize.define(
     id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
     trabajador_id: {
       type: DataTypes.BIGINT.UNSIGNED,
-      allowNull: true,
-      references: { model: Trabajador, key: 'id' }
+      allowNull: true
     },
     usuario: { type: DataTypes.STRING(50), allowNull: false, unique: 'uq_usuario' },
     password_hash: { type: DataTypes.STRING(255), allowNull: false },
@@ -148,13 +145,37 @@ export const Usuario = sequelize.define(
   }
 )
 
-Facultad.hasMany(Practicante, { foreignKey: 'facultad_id' })
-Practicante.belongsTo(Facultad, { foreignKey: 'facultad_id' })
+Facultad.hasMany(Practicante, {
+  foreignKey: 'facultad_id',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+})
+Practicante.belongsTo(Facultad, {
+  foreignKey: 'facultad_id',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+})
 
-Practicante.hasMany(Asistencia, { foreignKey: 'practicante_id' })
-Asistencia.belongsTo(Practicante, { foreignKey: 'practicante_id' })
+Practicante.hasMany(Asistencia, {
+  foreignKey: 'practicante_id',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+})
+Asistencia.belongsTo(Practicante, {
+  foreignKey: 'practicante_id',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+})
 
-Trabajador.hasMany(Usuario, { foreignKey: 'trabajador_id' })
-Usuario.belongsTo(Trabajador, { foreignKey: 'trabajador_id' })
+Trabajador.hasMany(Usuario, {
+  foreignKey: 'trabajador_id',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
+})
+Usuario.belongsTo(Trabajador, {
+  foreignKey: 'trabajador_id',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
+})
 
 export default sequelize

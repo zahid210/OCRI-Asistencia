@@ -6,10 +6,11 @@ import jwt from 'jsonwebtoken'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import sequelize, { Practicante, Asistencia, Trabajador, Usuario } from './db.js'
+import { authMiddleware, requireAdmin, JWT_SECRET } from './auth.js'
+import adminRouter from './routes/admin.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me'
 const LIMA_TZ = 'America/Lima'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -88,22 +89,6 @@ function publicUserData(usuario) {
           area: trabajador.area
         }
       : null
-  }
-}
-
-function authMiddleware(req, res, next) {
-  const header = req.headers.authorization ?? ''
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null
-
-  if (!token) {
-    return res.status(401).json({ message: 'No autorizado.' })
-  }
-
-  try {
-    req.user = jwt.verify(token, JWT_SECRET)
-    next()
-  } catch {
-    return res.status(401).json({ message: 'Sesión inválida o expirada.' })
   }
 }
 
@@ -282,6 +267,8 @@ app.get('/api/health', async (_req, res) => {
     res.status(500).json({ ok: false, message: 'Database connection failed' })
   }
 })
+
+app.use('/api/admin', authMiddleware, requireAdmin, adminRouter)
 
 app.use(express.static(path.join(__dirname, '../../frontend/dist')))
 

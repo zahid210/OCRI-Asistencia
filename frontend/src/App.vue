@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import AdminPanel from './components/AdminPanel.vue'
 
 const TOKEN_KEY = 'ocri_token'
 
@@ -11,6 +12,7 @@ const notifications = ref([])
 const submitting = ref(false)
 
 const user = ref(null)
+const view = ref('attendance')
 const authLoading = ref(true)
 const loginUsuario = ref('')
 const loginPassword = ref('')
@@ -109,6 +111,7 @@ async function login() {
 function logout() {
   localStorage.removeItem(TOKEN_KEY)
   user.value = null
+  view.value = 'attendance'
   dni.value = ''
   loginError.value = ''
   loginPassword.value = ''
@@ -311,7 +314,11 @@ onBeforeUnmount(() => {
     <div class="background" aria-hidden="true"></div>
     <div class="shade" aria-hidden="true"></div>
 
-    <section v-if="user" class="top-left-clock" aria-label="Hora actual de Lima">
+    <section
+      v-if="user && view === 'attendance'"
+      class="top-left-clock"
+      aria-label="Hora actual de Lima"
+    >
       <div
         class="clock-face"
         :class="{ 'is-ready': clockReady }"
@@ -334,10 +341,15 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <img v-if="user" class="ocri-logo" src="/ocri-logo.png" alt="OCRI" />
+    <img
+      v-if="user && view === 'attendance'"
+      class="ocri-logo"
+      src="/ocri-logo.png"
+      alt="OCRI"
+    />
 
     <template v-if="!authLoading">
-      <section v-if="user" class="login-panel">
+      <section v-if="user && view === 'attendance'" class="login-panel">
         <label class="dni-input-shell">
           <input
             ref="dniInput"
@@ -393,7 +405,27 @@ onBeforeUnmount(() => {
       </form>
     </template>
 
+    <AdminPanel v-if="user && view === 'admin'" />
+
     <div v-if="user" class="session-bar">
+      <div v-if="user.rol === 'ADMIN'" class="view-switcher">
+        <button
+          type="button"
+          class="view-switch-btn"
+          :class="{ active: view === 'attendance' }"
+          @click="view = 'attendance'"
+        >
+          Asistencia
+        </button>
+        <button
+          type="button"
+          class="view-switch-btn"
+          :class="{ active: view === 'admin' }"
+          @click="view = 'admin'"
+        >
+          Panel
+        </button>
+      </div>
       <span class="session-user">
         {{ user.trabajador?.nombre }} {{ user.trabajador?.apellidos }}
       </span>
