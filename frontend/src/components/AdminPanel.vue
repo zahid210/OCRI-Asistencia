@@ -758,7 +758,25 @@ function isSelf(row) {
 .modal-field input:focus,
 .modal-field select:focus {
   border-color: rgba(255, 255, 255, .75);
-  background: rgba(255, 255, 255, .09);
+  background-color: rgba(255, 255, 255, .09);
+}
+
+.modal-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: rgba(255, 255, 255, .06);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 11px 7px;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+.modal-field select:disabled {
+  cursor: default;
+  opacity: .6;
 }
 
 .modal-error {
