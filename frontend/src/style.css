@@ -259,6 +259,10 @@ body { overflow: hidden; }
   gap: 7px;
 }
 
+.login-field.shake {
+  animation: mac-shake .5s cubic-bezier(.36,.07,.19,.97);
+}
+
 .login-field-label {
   font-size: 11px;
   font-weight: 300;

@@ -19,10 +19,20 @@ const loginSubmitting = ref(false)
 
 const dniInput = ref(null)
 const usuarioInput = ref(null)
+const usuarioField = ref(null)
+const passwordField = ref(null)
 
 let clockTimer
 let shakeTimer
 let notificationId = 0
+
+function shakeField(el) {
+  if (!el) return
+  el.classList.remove('shake')
+  void el.offsetWidth
+  el.classList.add('shake')
+  setTimeout(() => el.classList.remove('shake'), 550)
+}
 
 function authHeaders() {
   const token = localStorage.getItem(TOKEN_KEY)
@@ -54,6 +64,14 @@ async function login() {
   if (loginSubmitting.value) return
 
   loginError.value = ''
+
+  const usuarioFilled = Boolean(loginUsuario.value.trim())
+  const passwordFilled = Boolean(loginPassword.value)
+
+  if (!usuarioFilled) shakeField(usuarioField.value)
+  if (!passwordFilled) shakeField(passwordField.value)
+  if (!usuarioFilled || !passwordFilled) return
+
   loginSubmitting.value = true
 
   try {
@@ -67,6 +85,14 @@ async function login() {
     })
 
     const data = await response.json()
+
+    if (response.status === 401) {
+      shakeField(usuarioField.value)
+      shakeField(passwordField.value)
+      loginError.value = data.message || 'Credenciales inválidas.'
+      return
+    }
+
     if (!response.ok) throw new Error(data.message || 'No se pudo iniciar sesión')
 
     localStorage.setItem(TOKEN_KEY, data.token)
@@ -285,7 +311,7 @@ onBeforeUnmount(() => {
     <div class="background" aria-hidden="true"></div>
     <div class="shade" aria-hidden="true"></div>
 
-    <section class="top-left-clock" aria-label="Hora actual de Lima">
+    <section v-if="user" class="top-left-clock" aria-label="Hora actual de Lima">
       <div
         class="clock-face"
         :class="{ 'is-ready': clockReady }"
@@ -308,7 +334,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <img class="ocri-logo" src="/ocri-logo.png" alt="OCRI" />
+    <img v-if="user" class="ocri-logo" src="/ocri-logo.png" alt="OCRI" />
 
     <template v-if="!authLoading">
       <section v-if="user" class="login-panel">
@@ -339,7 +365,7 @@ onBeforeUnmount(() => {
       <form v-else class="login-form" @submit.prevent="login">
         <h1 class="login-title">Iniciar sesión</h1>
 
-        <label class="login-field">
+        <label ref="usuarioField" class="login-field">
           <span class="login-field-label">Usuario</span>
           <input
             ref="usuarioInput"
@@ -350,7 +376,7 @@ onBeforeUnmount(() => {
           />
         </label>
 
-        <label class="login-field">
+        <label ref="passwordField" class="login-field">
           <span class="login-field-label">Contraseña</span>
           <input
             v-model="loginPassword"
