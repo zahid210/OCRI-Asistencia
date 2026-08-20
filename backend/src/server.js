@@ -1,12 +1,15 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import sequelize, { Practicante, Asistencia } from './db.js'
+import sequelize, { Practicante, Asistencia, Trabajador, Usuario } from './db.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me'
 const LIMA_TZ = 'America/Lima'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -36,7 +39,8 @@ const timeFormatter = new Intl.DateTimeFormat('en-GB', {
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' ? undefined : '*',
-  methods: ['GET', 'POST']
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }))
 app.use(express.json({ limit: '10kb' }))
 
@@ -67,12 +71,111 @@ function limaNow() {
   }
 }
 
+function publicUserData(usuario) {
+  const trabajador = usuario.Trabajador
+  return {
+    id: usuario.id,
+    usuario: usuario.usuario,
+    rol: usuario.rol,
+    trabajador: trabajador
+      ? {
+          id: trabajador.id,
+          dni: trabajador.dni,
+          nombre: trabajador.nombre,
+          apellidos: trabajador.apellidos,
+          codigo_trabajador: trabajador.codigo_trabajador,
+          cargo: trabajador.cargo,
+          area: trabajador.area
+        }
+      : null
+  }
+}
+
+function authMiddleware(req, res, next) {
+  const header = req.headers.authorization ?? ''
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null
+
+  if (!token) {
+    return res.status(401).json({ message: 'No autorizado.' })
+  }
+
+  try {
+    req.user = jwt.verify(token, JWT_SECRET)
+    next()
+  } catch {
+    return res.status(401).json({ message: 'Sesión inválida o expirada.' })
+  }
+}
+
+app.post('/api/auth/login', async (req, res) => {
+  const usuario = String(req.body?.usuario ?? '').trim()
+  const password = String(req.body?.password ?? '')
+
+  if (!usuario || !password) {
+    return res.status(400).json({ message: 'Ingrese usuario y contraseña.' })
+  }
+
+  try {
+    const user = await Usuario.findOne({
+      where: { usuario },
+      include: [{ model: Trabajador }]
+    })
+
+    if (!user) {
+      return res.status(401).json({ message: 'Credenciales inválidas.' })
+    }
+
+    if (user.estado !== 'ACTIVO') {
+      return res.status(403).json({ message: 'Usuario inactivo.' })
+    }
+
+    const valid = await bcrypt.compare(password, user.password_hash)
+    if (!valid) {
+      return res.status(401).json({ message: 'Credenciales inválidas.' })
+    }
+
+    await Usuario.update(
+      { ultimo_acceso: new Date() },
+      { where: { id: user.id } }
+    )
+
+    const token = jwt.sign(
+      { id: user.id, usuario: user.usuario, rol: user.rol },
+      JWT_SECRET,
+      { expiresIn: '12h' }
+    )
+
+    res.json({ success: true, token, user: publicUserData(user) })
+  } catch (err) {
+    console.error('Login error:', err)
+    res.status(500).json({ message: 'Error interno del servidor.' })
+  }
+})
+
+app.get('/api/auth/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await Usuario.findOne({
+      where: { id: req.user.id, estado: 'ACTIVO' },
+      include: [{ model: Trabajador }]
+    })
+
+    if (!user) {
+      return res.status(401).json({ message: 'No autorizado.' })
+    }
+
+    res.json({ success: true, user: publicUserData(user) })
+  } catch (err) {
+    console.error('Me error:', err)
+    res.status(500).json({ message: 'Error interno del servidor.' })
+  }
+})
+
 app.get('/api/time', (_req, res) => {
   res.set('Cache-Control', 'no-store')
   res.json(limaDateParts())
 })
 
-app.post('/api/attendance', async (req, res) => {
+app.post('/api/attendance', authMiddleware, async (req, res) => {
   const dni = String(req.body?.dni ?? '')
 
   if (!/^\d{8}$/.test(dni)) {

@@ -2,7 +2,8 @@ import 'dotenv/config'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { readFileSync, existsSync } from 'fs'
-import sequelize, { Facultad, Practicante } from './db.js'
+import bcrypt from 'bcryptjs'
+import sequelize, { Facultad, Practicante, Trabajador, Usuario } from './db.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -10,8 +11,10 @@ const __dirname = path.dirname(__filename)
 const dataDir = process.env.SEED_DIR || path.join(__dirname, '../data')
 const facultadesFile = path.join(dataDir, 'facultades.json')
 const practicantesFile = path.join(dataDir, 'practicantes.json')
+const trabajadoresFile = path.join(dataDir, 'trabajadores.json')
+const usuariosFile = path.join(dataDir, 'usuarios.json')
 
-for (const file of [facultadesFile, practicantesFile]) {
+for (const file of [facultadesFile, practicantesFile, trabajadoresFile, usuariosFile]) {
   if (!existsSync(file)) {
     console.error(`No se encontró el archivo de datos: ${file}`)
     process.exit(1)
@@ -20,6 +23,8 @@ for (const file of [facultadesFile, practicantesFile]) {
 
 const facultades = JSON.parse(readFileSync(facultadesFile, 'utf8'))
 const practicantes = JSON.parse(readFileSync(practicantesFile, 'utf8'))
+const trabajadores = JSON.parse(readFileSync(trabajadoresFile, 'utf8'))
+const usuarios = JSON.parse(readFileSync(usuariosFile, 'utf8'))
 
 let createdFacultades = 0
 const facultadIdByName = new Map()
@@ -68,9 +73,55 @@ for (const p of practicantes) {
   else skipped++
 }
 
+let createdTrabajadores = 0
+const trabajadorByDni = new Map()
+
+for (const t of trabajadores) {
+  const [row, isNew] = await Trabajador.findOrCreate({
+    where: { dni: String(t.dni) },
+    defaults: {
+      dni: String(t.dni),
+      nombre: t.nombre,
+      apellidos: t.apellidos,
+      codigo_trabajador: t.codigo_trabajador ?? null,
+      cargo: t.cargo ?? null,
+      area: t.area ?? null,
+      estado: t.estado || 'ACTIVO'
+    }
+  })
+
+  trabajadorByDni.set(row.dni, row.id)
+  if (isNew) createdTrabajadores++
+}
+
+let createdUsuarios = 0
+let skippedUsuarios = 0
+
+for (const u of usuarios) {
+  const trabajadorId = u.trabajador_dni
+    ? trabajadorByDni.get(String(u.trabajador_dni))
+    : null
+
+  const [, isNew] = await Usuario.findOrCreate({
+    where: { usuario: u.usuario },
+    defaults: {
+      trabajador_id: trabajadorId,
+      usuario: u.usuario,
+      password_hash: await bcrypt.hash(u.password, 10),
+      rol: u.rol || 'SUPERVISOR',
+      estado: u.estado || 'ACTIVO'
+    }
+  })
+
+  if (isNew) createdUsuarios++
+  else skippedUsuarios++
+}
+
 console.log(
-  `Seed completado: ${createdFacultades} facultades creadas, ` +
-    `${created} practicantes creados, ${skipped} ya existentes.`
+  `Seed completado: ${createdFacultades} facultades, ` +
+    `${created} practicantes (${skipped} ya existentes), ` +
+    `${createdTrabajadores} trabajadores, ` +
+    `${createdUsuarios} usuarios (${skippedUsuarios} ya existentes).`
 )
 
 await sequelize.close()

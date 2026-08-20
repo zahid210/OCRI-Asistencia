@@ -1,0 +1,9 @@
+[
+  {
+    "trabajador_dni": "70000001",
+    "usuario": "admin",
+    "password": "admin123",
+    "rol": "ADMIN",
+    "estado": "ACTIVO"
+  }
+]

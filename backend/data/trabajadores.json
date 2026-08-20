@@ -1,0 +1,11 @@
+[
+  {
+    "dni": "70000001",
+    "nombre": "Administrador",
+    "apellidos": "OCRI",
+    "codigo_trabajador": "ADMIN-001",
+    "cargo": "Administrador",
+    "area": "OCRI",
+    "estado": "ACTIVO"
+  }
+]

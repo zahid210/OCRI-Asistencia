@@ -1,5 +1,7 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+
+const TOKEN_KEY = 'ocri_token'
 
 const dni = ref('')
 const currentTime = ref('--:--')
@@ -8,9 +10,92 @@ const meridiem = ref('')
 const notifications = ref([])
 const submitting = ref(false)
 
+const user = ref(null)
+const authLoading = ref(true)
+const loginUsuario = ref('')
+const loginPassword = ref('')
+const loginError = ref('')
+const loginSubmitting = ref(false)
+
+const dniInput = ref(null)
+const usuarioInput = ref(null)
+
 let clockTimer
 let shakeTimer
 let notificationId = 0
+
+function authHeaders() {
+  const token = localStorage.getItem(TOKEN_KEY)
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+async function restoreSession() {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (!token) {
+    authLoading.value = false
+    return
+  }
+  try {
+    const response = await fetch('/api/auth/me', { headers: authHeaders() })
+    const data = await response.json()
+    if (!response.ok || !data.success) {
+      localStorage.removeItem(TOKEN_KEY)
+    } else {
+      user.value = data.user
+    }
+  } catch {
+    localStorage.removeItem(TOKEN_KEY)
+  } finally {
+    authLoading.value = false
+  }
+}
+
+async function login() {
+  if (loginSubmitting.value) return
+
+  loginError.value = ''
+  loginSubmitting.value = true
+
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        usuario: loginUsuario.value.trim(),
+        password: loginPassword.value
+      })
+    })
+
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.message || 'No se pudo iniciar sesión')
+
+    localStorage.setItem(TOKEN_KEY, data.token)
+    user.value = data.user
+    loginUsuario.value = ''
+    loginPassword.value = ''
+  } catch (error) {
+    loginError.value = error.message || 'No se pudo iniciar sesión.'
+  } finally {
+    loginSubmitting.value = false
+  }
+}
+
+function logout() {
+  localStorage.removeItem(TOKEN_KEY)
+  user.value = null
+  dni.value = ''
+  loginError.value = ''
+  loginPassword.value = ''
+}
+
+watch(user, async (value) => {
+  await nextTick()
+  if (value) {
+    dniInput.value?.focus()
+  } else {
+    usuarioInput.value?.focus()
+  }
+})
 
 function pushNotification({ title, name, dni: dniText, detail = '', error = false }) {
   const id = ++notificationId
@@ -100,11 +185,26 @@ async function registerAttendance() {
   try {
     const response = await fetch('/api/attendance', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
       body: JSON.stringify({ dni: dni.value })
     })
 
     const data = await response.json()
+
+    if (response.status === 401) {
+      logout()
+      pushNotification({
+        title: 'Sesión expirada',
+        name: 'Vuelva a iniciar sesión.',
+        dni: '',
+        error: true
+      })
+      return
+    }
+
     if (!response.ok) throw new Error(data.message || 'No se pudo registrar')
 
     const isExit = data.code === 'ATTENDANCE_COMPLETED'
@@ -170,6 +270,7 @@ function startShake() {
 }
 
 onMounted(() => {
+  restoreSession()
   syncTime()
 })
 
@@ -209,29 +310,71 @@ onBeforeUnmount(() => {
 
     <img class="ocri-logo" src="/ocri-logo.png" alt="OCRI" />
 
-    <section class="login-panel">
-      <label class="dni-input-shell">
-        <input
-          :value="dni"
-          inputmode="numeric"
-          autocomplete="off"
-          maxlength="8"
-          autofocus
-          @input="onInput"
-          @keydown="onKeydown"
-          @paste="onPaste"
-        />
-      </label>
+    <template v-if="!authLoading">
+      <section v-if="user" class="login-panel">
+        <label class="dni-input-shell">
+          <input
+            ref="dniInput"
+            :value="dni"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="8"
+            autofocus
+            @input="onInput"
+            @keydown="onKeydown"
+            @paste="onPaste"
+          />
+        </label>
 
-      <div class="dots" aria-hidden="true">
-        <span
-          v-for="(active, index) in dots"
-          :key="index"
-          class="dot"
-          :class="{ active }"
-        />
-      </div>
-    </section>
+        <div class="dots" aria-hidden="true">
+          <span
+            v-for="(active, index) in dots"
+            :key="index"
+            class="dot"
+            :class="{ active }"
+          />
+        </div>
+      </section>
+
+      <form v-else class="login-form" @submit.prevent="login">
+        <h1 class="login-title">Iniciar sesión</h1>
+
+        <label class="login-field">
+          <span class="login-field-label">Usuario</span>
+          <input
+            ref="usuarioInput"
+            v-model="loginUsuario"
+            type="text"
+            autocomplete="username"
+            spellcheck="false"
+          />
+        </label>
+
+        <label class="login-field">
+          <span class="login-field-label">Contraseña</span>
+          <input
+            v-model="loginPassword"
+            type="password"
+            autocomplete="current-password"
+          />
+        </label>
+
+        <p v-if="loginError" class="login-error">{{ loginError }}</p>
+
+        <button class="login-button" type="submit" :disabled="loginSubmitting">
+          {{ loginSubmitting ? 'Ingresando…' : 'Ingresar' }}
+        </button>
+      </form>
+    </template>
+
+    <div v-if="user" class="session-bar">
+      <span class="session-user">
+        {{ user.trabajador?.nombre }} {{ user.trabajador?.apellidos }}
+      </span>
+      <button class="logout-button" type="button" @click="logout">
+        Cerrar sesión
+      </button>
+    </div>
 
     <TransitionGroup name="toast" tag="div" class="toast-stack">
       <aside v-for="n in notifications" :key="n.id" class="glass-notification">
