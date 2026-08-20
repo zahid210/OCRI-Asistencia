@@ -497,6 +497,18 @@ body { overflow: hidden; }
   transform: translateY(-17px);
 }
 
+.err-enter-active,
+.err-leave-active {
+  transition: opacity .48s cubic-bezier(.22, 1, .36, 1),
+              transform .48s cubic-bezier(.22, 1, .36, 1);
+}
+
+.err-enter-from,
+.err-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
 .panel-enter-active,
 .panel-leave-active {
   transition: opacity .45s cubic-bezier(.22, 1, .36, 1),

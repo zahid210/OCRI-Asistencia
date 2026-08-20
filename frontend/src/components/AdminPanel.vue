@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
   currentUser: { type: Object, default: null }
@@ -161,6 +161,19 @@ const formError = ref('')
 const saving = ref(false)
 
 const confirmState = ref(null)
+
+let errorTimer = null
+let formErrorTimer = null
+
+watch(error, (value) => {
+  clearTimeout(errorTimer)
+  if (value) errorTimer = setTimeout(() => { error.value = '' }, 4200)
+})
+
+watch(formError, (value) => {
+  clearTimeout(formErrorTimer)
+  if (value) formErrorTimer = setTimeout(() => { formError.value = '' }, 4200)
+})
 
 const activeTabLabel = computed(
   () => tabs.find((t) => t.key === activeTab.value)?.label ?? ''
@@ -435,7 +448,9 @@ function isSelf(row) {
         </button>
       </div>
 
-      <p v-if="error" class="admin-error">{{ error }}</p>
+      <Transition name="err">
+        <p v-if="error" class="admin-error">{{ error }}</p>
+      </Transition>
 
       <div class="admin-card">
         <div class="admin-card-head">
@@ -600,7 +615,9 @@ function isSelf(row) {
             </label>
           </div>
 
-          <p v-if="formError" class="modal-error">{{ formError }}</p>
+          <Transition name="err">
+            <p v-if="formError" class="modal-error">{{ formError }}</p>
+          </Transition>
 
           <div class="modal-actions">
             <button type="button" class="admin-btn" @click="closeForm">Cancelar</button>

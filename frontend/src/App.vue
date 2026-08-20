@@ -27,6 +27,12 @@ const passwordField = ref(null)
 let clockTimer
 let shakeTimer
 let notificationId = 0
+let loginErrorTimer = null
+
+watch(loginError, (value) => {
+  clearTimeout(loginErrorTimer)
+  if (value) loginErrorTimer = setTimeout(() => { loginError.value = '' }, 4200)
+})
 
 function shakeField(el) {
   if (!el) return
@@ -408,7 +414,9 @@ onBeforeUnmount(() => {
           />
         </label>
 
-        <p v-if="loginError" class="login-error">{{ loginError }}</p>
+        <Transition name="err">
+          <p v-if="loginError" class="login-error">{{ loginError }}</p>
+        </Transition>
 
         <button class="login-button" type="submit" :disabled="loginSubmitting">
           {{ loginSubmitting ? 'Ingresando…' : 'Ingresar' }}
