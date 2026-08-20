@@ -58,11 +58,11 @@ const columns = {
 const fieldConfigs = {
   practicantes: [
     { key: 'dni', label: 'DNI', type: 'text', required: true, maxlength: 8 },
-    { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-    { key: 'apellidos', label: 'Apellidos', type: 'text', required: true },
-    { key: 'codigo_alumno', label: 'Código de alumno', type: 'text', required: true },
+    { key: 'nombre', label: 'Nombre', type: 'text', required: true, maxlength: 100 },
+    { key: 'apellidos', label: 'Apellidos', type: 'text', required: true, maxlength: 150 },
+    { key: 'codigo_alumno', label: 'Código de alumno', type: 'text', required: true, maxlength: 30 },
     { key: 'facultad_id', label: 'Facultad', type: 'select', options: 'facultades', required: true },
-    { key: 'ciclo', label: 'Ciclo', type: 'number' },
+    { key: 'ciclo', label: 'Ciclo', type: 'number', min: 1, max: 10 },
     {
       key: 'estado',
       label: 'Estado',
@@ -71,22 +71,22 @@ const fieldConfigs = {
     }
   ],
   facultades: [
-    { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-    { key: 'abreviatura', label: 'Abreviatura', type: 'text' },
+    { key: 'nombre', label: 'Nombre', type: 'text', required: true, maxlength: 150 },
+    { key: 'abreviatura', label: 'Abreviatura', type: 'text', maxlength: 20 },
     { key: 'estado', label: 'Estado', type: 'select', options: ['ACTIVO', 'INACTIVO'] }
   ],
   trabajadores: [
     { key: 'dni', label: 'DNI', type: 'text', required: true, maxlength: 8 },
-    { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-    { key: 'apellidos', label: 'Apellidos', type: 'text', required: true },
-    { key: 'codigo_trabajador', label: 'Código de trabajador', type: 'text' },
-    { key: 'cargo', label: 'Cargo', type: 'text' },
-    { key: 'area', label: 'Área', type: 'text' },
+    { key: 'nombre', label: 'Nombre', type: 'text', required: true, maxlength: 100 },
+    { key: 'apellidos', label: 'Apellidos', type: 'text', required: true, maxlength: 150 },
+    { key: 'codigo_trabajador', label: 'Código de trabajador', type: 'text', maxlength: 30 },
+    { key: 'cargo', label: 'Cargo', type: 'text', maxlength: 100 },
+    { key: 'area', label: 'Área', type: 'text', maxlength: 150 },
     { key: 'estado', label: 'Estado', type: 'select', options: ['ACTIVO', 'INACTIVO'] }
   ],
   usuarios: [
-    { key: 'usuario', label: 'Usuario', type: 'text', required: true },
-    { key: 'password', label: 'Contraseña', type: 'password', required: true, editOptional: true },
+    { key: 'usuario', label: 'Usuario', type: 'text', required: true, maxlength: 50 },
+    { key: 'password', label: 'Contraseña', type: 'password', required: true, editOptional: true, min: 6, maxlength: 72 },
     { key: 'trabajador_id', label: 'Trabajador', type: 'select', options: 'trabajadores', allowEmpty: true },
     { key: 'rol', label: 'Rol', type: 'select', options: ['ADMIN', 'COORDINADOR', 'SUPERVISOR'] },
     { key: 'estado', label: 'Estado', type: 'select', options: ['ACTIVO', 'INACTIVO'] }
@@ -362,6 +362,9 @@ async function toggleEstado(row) {
                 v-model="form[f.key]"
                 :type="f.type"
                 :maxlength="f.maxlength"
+                :minlength="f.type === 'password' ? f.min : undefined"
+                :min="f.min"
+                :max="f.max"
                 :step="f.type === 'number' ? 1 : undefined"
               />
             </label>

@@ -40,7 +40,7 @@ const timeFormatter = new Intl.DateTimeFormat('en-GB', {
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' ? undefined : '*',
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
 app.use(express.json({ limit: '10kb' }))
@@ -98,6 +98,10 @@ app.post('/api/auth/login', async (req, res) => {
 
   if (!usuario || !password) {
     return res.status(400).json({ message: 'Ingrese usuario y contraseña.' })
+  }
+
+  if (usuario.length > 50) {
+    return res.status(400).json({ message: 'Usuario inválido.' })
   }
 
   try {

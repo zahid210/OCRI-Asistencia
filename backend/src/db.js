@@ -51,7 +51,11 @@ export const Practicante = sequelize.define(
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false
     },
-    ciclo: { type: DataTypes.TINYINT.UNSIGNED, allowNull: true },
+    ciclo: {
+      type: DataTypes.TINYINT.UNSIGNED,
+      allowNull: true,
+      validate: { min: 1, max: 10 }
+    },
     estado: {
       type: DataTypes.ENUM('ACTIVO', 'INACTIVO', 'EGRESADO', 'RETIRADO'),
       allowNull: false,
