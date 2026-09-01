@@ -377,15 +377,18 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <img
+    <div
       v-if="user && view === 'attendance'"
-      class="ocri-logo"
-      src="/ocri-logo.png"
-      alt="OCRI"
-    />
+      class="ocri-brand"
+    >
+      <img
+        class="ocri-logo"
+        src="/ocri-logo.png"
+        alt="OCRI"
+      />
+      <p class="ocri-title">Oficina de Cooperación y Relaciones Internacionales</p>
 
-    <template v-if="!authLoading">
-      <section v-if="user && view === 'attendance'" class="login-panel">
+      <section v-if="!authLoading" class="login-panel">
         <label class="dni-input-shell">
           <input
             ref="dniInput"
@@ -409,8 +412,10 @@ onBeforeUnmount(() => {
           />
         </div>
       </section>
+    </div>
 
-      <form v-else-if="!user" class="login-form" @submit.prevent="login">
+    <template v-if="!authLoading">
+      <form v-if="!user" class="login-form" @submit.prevent="login">
         <h1 class="login-title">Iniciar sesión</h1>
 
         <label ref="usuarioField" class="login-field">
@@ -481,7 +486,12 @@ onBeforeUnmount(() => {
     </div>
 
     <TransitionGroup name="toast" tag="div" class="toast-stack">
-      <aside v-for="n in notifications" :key="n.id" class="glass-notification">
+      <aside
+        v-for="n in notifications"
+        :key="n.id"
+        class="glass-notification"
+        :class="n.error ? 'is-error' : 'is-success'"
+      >
         <div class="notification-header">
           <span>{{ n.title }}</span>
           <span class="check">{{ n.error ? '✕' : '✓' }}</span>
