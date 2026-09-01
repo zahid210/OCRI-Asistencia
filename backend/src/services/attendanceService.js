@@ -1,5 +1,10 @@
+import { Op } from 'sequelize'
 import { Practicante, Asistencia } from '../db.js'
 import { limaNow } from './timeService.js'
+
+export const WORK_START = '08:00:00'
+export const WORK_END = '20:00:00'
+export const AUTO_CLOSE_TIME = '20:00:00'
 
 export class AttendanceServiceError extends Error {
   constructor(status, message, code) {
@@ -7,6 +12,10 @@ export class AttendanceServiceError extends Error {
     this.status = status
     this.code = code
   }
+}
+
+function isWithinWorkHours(time) {
+  return time > WORK_START && time < WORK_END
 }
 
 function practitionerData(practitioner) {
@@ -22,6 +31,19 @@ function practitionerData(practitioner) {
   }
 }
 
+async function autoClosePending(today) {
+  await Asistencia.update(
+    { hora_salida: AUTO_CLOSE_TIME, estado: 'COMPLETA' },
+    {
+      where: {
+        fecha: { [Op.lt]: today },
+        estado: 'PENDIENTE',
+        hora_salida: null
+      }
+    }
+  )
+}
+
 export async function registerAttendance(dni) {
   const practitioner = await Practicante.findOne({
     where: { dni, estado: 'ACTIVO' }
@@ -32,6 +54,16 @@ export async function registerAttendance(dni) {
   }
 
   const lima = limaNow()
+
+  if (!isWithinWorkHours(lima.time)) {
+    throw new AttendanceServiceError(
+      403,
+      'Fuera de horario laboral (8:00 a.m. - 8:00 p.m.).',
+      'OUTSIDE_WORK_HOURS'
+    )
+  }
+
+  await autoClosePending(lima.date)
   let existing = await Asistencia.findOne({
     where: { practicante_id: practitioner.id, fecha: lima.date }
   })

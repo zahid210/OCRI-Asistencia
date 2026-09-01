@@ -252,7 +252,26 @@ async function registerAttendance() {
       return
     }
 
-    if (!response.ok) throw new Error(data.message || 'No se pudo registrar')
+    if (!response.ok) {
+      if (data.code === 'OUTSIDE_WORK_HOURS') {
+        pushNotification({
+          title: 'Fuera de horario laboral',
+          name: data.message || 'El horario de registro es de 8:00 a.m. a 8:00 p.m.',
+          dni: '',
+          error: true
+        })
+      } else {
+        pushNotification({
+          title: 'Aviso',
+          name: data.message || 'No se pudo registrar.',
+          dni: '',
+          error: true
+        })
+      }
+
+      dni.value = ''
+      return
+    }
 
     const isExit = data.code === 'ATTENDANCE_COMPLETED'
     pushNotification({
