@@ -6,7 +6,7 @@ if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
 
 export const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me'
 
-export function authMiddleware(req, res, next) {
+export function authRequired(req, res, next) {
   const header = req.headers.authorization ?? ''
   const token = header.startsWith('Bearer ') ? header.slice(7) : null
 

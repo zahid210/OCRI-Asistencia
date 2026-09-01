@@ -1,4 +1,3 @@
-import { Router } from 'express'
 import { Op } from 'sequelize'
 import bcrypt from 'bcryptjs'
 import { Asistencia, Facultad, Practicante, Trabajador, Usuario } from '../db.js'
@@ -13,16 +12,14 @@ import {
   passwordError
 } from '../validation.js'
 
-const router = Router()
-
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(status, message) {
     super(message)
     this.status = status
   }
 }
 
-function handleError(res, err) {
+export function handleError(res, err) {
   if (err instanceof ApiError) {
     return res.status(err.status).json({ message: err.message })
   }
@@ -91,9 +88,28 @@ function rolOrThrow(body, fallback) {
   return body.rol
 }
 
+function sanitizeUsuario(u) {
+  return {
+    id: u.id,
+    usuario: u.usuario,
+    rol: u.rol,
+    estado: u.estado,
+    trabajador_id: u.trabajador_id,
+    ultimo_acceso: u.ultimo_acceso,
+    Trabajador: u.Trabajador
+      ? {
+          id: u.Trabajador.id,
+          dni: u.Trabajador.dni,
+          nombre: u.Trabajador.nombre,
+          apellidos: u.Trabajador.apellidos
+        }
+      : null
+  }
+}
+
 /* ------------------------- Practicantes ------------------------- */
 
-router.get('/practicantes', async (_req, res) => {
+export async function listPracticantes(_req, res) {
   try {
     const rows = await Practicante.findAll({
       include: [{ model: Facultad }],
@@ -103,9 +119,9 @@ router.get('/practicantes', async (_req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.post('/practicantes', async (req, res) => {
+export async function createPracticante(req, res) {
   try {
     const nombre = textOrThrow('nombre', req.body, { label: 'Nombre', max: LIMITS.nombre, required: true })
     const apellidos = textOrThrow('apellidos', req.body, { label: 'Apellidos', max: LIMITS.apellidos, required: true })
@@ -124,9 +140,9 @@ router.post('/practicantes', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.put('/practicantes/:id', async (req, res) => {
+export async function updatePracticante(req, res) {
   try {
     const changes = {}
     if (req.body.dni !== undefined) changes.dni = dniOrThrow(req.body)
@@ -152,9 +168,9 @@ router.put('/practicantes/:id', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.delete('/practicantes/:id', async (req, res) => {
+export async function deletePracticante(req, res) {
   try {
     const deleted = await Practicante.destroy({ where: { id: req.params.id } })
     if (!deleted) throw new ApiError(404, 'Practicante no encontrado.')
@@ -162,20 +178,20 @@ router.delete('/practicantes/:id', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
 /* ------------------------- Facultades ------------------------- */
 
-router.get('/facultades', async (_req, res) => {
+export async function listFacultades(_req, res) {
   try {
     const rows = await Facultad.findAll({ order: [['nombre', 'ASC']] })
     res.json({ success: true, data: rows })
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.post('/facultades', async (req, res) => {
+export async function createFacultad(req, res) {
   try {
     const row = await Facultad.create({
       nombre: textOrThrow('nombre', req.body, { label: 'Nombre', max: LIMITS.nombre_facultad, required: true }),
@@ -186,9 +202,9 @@ router.post('/facultades', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.put('/facultades/:id', async (req, res) => {
+export async function updateFacultad(req, res) {
   try {
     const changes = {}
     if (req.body.nombre !== undefined) {
@@ -207,9 +223,9 @@ router.put('/facultades/:id', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.delete('/facultades/:id', async (req, res) => {
+export async function deleteFacultad(req, res) {
   try {
     const deleted = await Facultad.destroy({ where: { id: req.params.id } })
     if (!deleted) throw new ApiError(404, 'Facultad no encontrada.')
@@ -217,20 +233,20 @@ router.delete('/facultades/:id', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
 /* ------------------------- Trabajadores ------------------------- */
 
-router.get('/trabajadores', async (_req, res) => {
+export async function listTrabajadores(_req, res) {
   try {
     const rows = await Trabajador.findAll({ order: [['apellidos', 'ASC'], ['nombre', 'ASC']] })
     res.json({ success: true, data: rows })
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.post('/trabajadores', async (req, res) => {
+export async function createTrabajador(req, res) {
   try {
     const row = await Trabajador.create({
       dni: dniOrThrow(req.body),
@@ -245,9 +261,9 @@ router.post('/trabajadores', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.put('/trabajadores/:id', async (req, res) => {
+export async function updateTrabajador(req, res) {
   try {
     const changes = {}
     if (req.body.dni !== undefined) changes.dni = dniOrThrow(req.body)
@@ -276,9 +292,9 @@ router.put('/trabajadores/:id', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.delete('/trabajadores/:id', async (req, res) => {
+export async function deleteTrabajador(req, res) {
   try {
     const deleted = await Trabajador.destroy({ where: { id: req.params.id } })
     if (!deleted) throw new ApiError(404, 'Trabajador no encontrado.')
@@ -286,11 +302,11 @@ router.delete('/trabajadores/:id', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
 /* ------------------------- Usuarios ------------------------- */
 
-router.get('/usuarios', async (_req, res) => {
+export async function listUsuarios(_req, res) {
   try {
     const rows = await Usuario.findAll({
       include: [{ model: Trabajador }],
@@ -300,9 +316,9 @@ router.get('/usuarios', async (_req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.post('/usuarios', async (req, res) => {
+export async function createUsuario(req, res) {
   try {
     const usuario = textOrThrow('usuario', req.body, { label: 'Usuario', max: LIMITS.usuario, required: true })
     const password = String(req.body.password ?? '')
@@ -321,9 +337,9 @@ router.post('/usuarios', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.put('/usuarios/:id', async (req, res) => {
+export async function updateUsuario(req, res) {
   try {
     const changes = {}
     if (req.body.usuario !== undefined) {
@@ -360,9 +376,9 @@ router.put('/usuarios/:id', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.delete('/usuarios/:id', async (req, res) => {
+export async function deleteUsuario(req, res) {
   try {
     if (Number(req.params.id) === Number(req.user.id)) {
       throw new ApiError(400, 'No puedes eliminar tu propia cuenta.')
@@ -372,25 +388,6 @@ router.delete('/usuarios/:id', async (req, res) => {
     res.json({ success: true })
   } catch (err) {
     handleError(res, err)
-  }
-})
-
-function sanitizeUsuario(u) {
-  return {
-    id: u.id,
-    usuario: u.usuario,
-    rol: u.rol,
-    estado: u.estado,
-    trabajador_id: u.trabajador_id,
-    ultimo_acceso: u.ultimo_acceso,
-    Trabajador: u.Trabajador
-      ? {
-          id: u.Trabajador.id,
-          dni: u.Trabajador.dni,
-          nombre: u.Trabajador.nombre,
-          apellidos: u.Trabajador.apellidos
-        }
-      : null
   }
 }
 
@@ -435,7 +432,26 @@ function asistFilters(query) {
   }
 }
 
-router.get('/asistencias/export', async (req, res) => {
+const esc = (value) => {
+  const s = String(value ?? '')
+  return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+const ASIST_HEADER = [
+  'Fecha',
+  'DNI',
+  'Apellidos',
+  'Nombres',
+  'Código',
+  'Facultad',
+  'Ciclo',
+  'Entrada',
+  'Salida',
+  'Estado',
+  'Observación'
+]
+
+export async function exportAsistencias(req, res) {
   try {
     const { where, include } = asistFilters(req.query)
     const rows = await Asistencia.findAll({
@@ -444,25 +460,6 @@ router.get('/asistencias/export', async (req, res) => {
       order: [['fecha', 'ASC'], ['id', 'ASC']],
       limit: 10000
     })
-
-    const esc = (value) => {
-      const s = String(value ?? '')
-      return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-    }
-
-    const header = [
-      'Fecha',
-      'DNI',
-      'Apellidos',
-      'Nombres',
-      'Código',
-      'Facultad',
-      'Ciclo',
-      'Entrada',
-      'Salida',
-      'Estado',
-      'Observación'
-    ]
 
     const lines = rows.map((r) =>
       [
@@ -482,16 +479,16 @@ router.get('/asistencias/export', async (req, res) => {
         .join(';')
     )
 
-    const csv = '\uFEFF' + [header.map(esc).join(';'), ...lines].join('\r\n')
+    const csv = '\uFEFF' + [ASIST_HEADER.map(esc).join(';'), ...lines].join('\r\n')
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', 'attachment; filename="asistencias.csv"')
     res.send(csv)
   } catch (err) {
     handleError(res, err)
   }
-})
+}
 
-router.get('/asistencias', async (req, res) => {
+export async function listAsistencias(req, res) {
   try {
     const { where, include } = asistFilters(req.query)
     const limit = Math.min(Number(req.query.limit) || 50, 200)
@@ -516,6 +513,4 @@ router.get('/asistencias', async (req, res) => {
   } catch (err) {
     handleError(res, err)
   }
-})
-
-export default router
+}
