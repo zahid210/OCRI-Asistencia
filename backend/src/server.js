@@ -39,9 +39,20 @@ app.use('/api', (_req, res) => {
   res.status(404).json({ message: 'Ruta no encontrada.' })
 })
 
-app.use(express.static(path.join(__dirname, '../../frontend/dist')))
+app.use(express.static(path.join(__dirname, '../../frontend/dist'), {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-cache')
+    } else if (/[\\/]assets[\\/]/.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+    } else if (/\.(png|jpe?g|gif|webp|svg|woff2?|ttf|otf)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400')
+    }
+  }
+}))
 
 app.get('*', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
   res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'))
 })
 
