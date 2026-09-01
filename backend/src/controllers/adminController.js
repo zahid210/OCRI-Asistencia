@@ -133,25 +133,18 @@ const usuarioCrud = createCrud({
         throw new ApiError(400, 'No puedes quitarte el rol de administrador.')
       }
     }
+  },
+  beforeRemove: async (req) => {
+    if (Number(req.params.id) === Number(req.user.id)) {
+      throw new ApiError(400, 'No puedes eliminar tu propia cuenta.')
+    }
   }
 })
 
 export const listUsuarios = usuarioCrud.list
 export const createUsuario = usuarioCrud.create
 export const updateUsuario = usuarioCrud.update
-
-export async function deleteUsuario(req, res) {
-  try {
-    if (Number(req.params.id) === Number(req.user.id)) {
-      throw new ApiError(400, 'No puedes eliminar tu propia cuenta.')
-    }
-    const deleted = await Usuario.destroy({ where: { id: req.params.id } })
-    if (!deleted) throw new ApiError(404, 'Usuario no encontrado.')
-    res.json({ success: true })
-  } catch (err) {
-    handleError(res, err)
-  }
-}
+export const deleteUsuario = usuarioCrud.remove
 
 /* ------------------------- Asistencias ------------------------- */
 

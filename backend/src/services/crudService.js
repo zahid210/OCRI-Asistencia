@@ -85,7 +85,7 @@ function buildValue(field, body) {
   return processor(body[field.key], field)
 }
 
-export function createCrud({ model, order = [], include, fields, notFound, beforeCreate, beforeUpdate, sanitize }) {
+export function createCrud({ model, order = [], include, fields, notFound, beforeCreate, beforeUpdate, beforeRemove, sanitize }) {
   const listOpts = { order }
   if (include) listOpts.include = include
 
@@ -136,6 +136,7 @@ export function createCrud({ model, order = [], include, fields, notFound, befor
 
     remove: async (req, res) => {
       try {
+        if (beforeRemove) await beforeRemove(req)
         const deleted = await model.destroy({ where: { id: req.params.id } })
         if (!deleted) throw new ApiError(404, notFound)
         res.json({ success: true })
