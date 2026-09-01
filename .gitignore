@@ -5,3 +5,6 @@ node_modules
 .vscode
 *.log
 .DS_Store
+
+# Build generado
+frontend/dist
