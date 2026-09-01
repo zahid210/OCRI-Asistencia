@@ -9,6 +9,9 @@ const emit = defineEmits(['session-expired'])
 
 const TOKEN_KEY = 'ocri_token'
 
+const _cache = new Map()
+const _CACHE_TTL = 30_000
+
 const tabs = [
   { key: 'practicantes', label: 'Practicantes' },
   { key: 'asistencias', label: 'Asistencias' },
@@ -199,6 +202,14 @@ function authHeaders() {
 }
 
 async function api(path, options = {}) {
+  const method = (options.method || 'GET').toUpperCase()
+  const isGet = method === 'GET'
+
+  if (isGet) {
+    const hit = _cache.get(path)
+    if (hit && Date.now() - hit.at < _CACHE_TTL) return hit.data
+  }
+
   const response = await fetch(path, {
     ...options,
     headers: {
@@ -213,6 +224,15 @@ async function api(path, options = {}) {
   }
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(data.message || 'Error del servidor.')
+
+  if (isGet) {
+    _cache.set(path, { data, at: Date.now() })
+  } else {
+    for (const key of _cache.keys()) {
+      if (key.startsWith('/api/admin/')) _cache.delete(key)
+    }
+  }
+
   return data
 }
 

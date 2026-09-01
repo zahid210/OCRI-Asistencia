@@ -20,33 +20,40 @@ import {
   listAsistencias
 } from '../controllers/adminController.js'
 import { authRequired, requireAdmin } from '../middleware/authMiddleware.js'
+import { cacheMiddleware, cacheInvalidate } from '../services/cacheService.js'
 
 const router = Router()
 
 router.use(authRequired)
 router.use(requireAdmin)
 
-router.get('/practicantes', listPracticantes)
-router.post('/practicantes', createPracticante)
-router.put('/practicantes/:id', updatePracticante)
-router.delete('/practicantes/:id', deletePracticante)
+const invalPro = (_req, _res, next) => { cacheInvalidate('admin/practicantes'); next() }
+const invalFac = (_req, _res, next) => { cacheInvalidate('admin/facultades'); next() }
+const invalTra = (_req, _res, next) => { cacheInvalidate('admin/trabajadores'); next() }
+const invalUsu = (_req, _res, next) => { cacheInvalidate('admin/usuarios'); next() }
+const invalAsis = (_req, _res, next) => { cacheInvalidate('admin/asistencias'); next() }
 
-router.get('/facultades', listFacultades)
-router.post('/facultades', createFacultad)
-router.put('/facultades/:id', updateFacultad)
-router.delete('/facultades/:id', deleteFacultad)
+router.get('/practicantes', cacheMiddleware(), listPracticantes)
+router.post('/practicantes', invalPro, createPracticante)
+router.put('/practicantes/:id', invalPro, updatePracticante)
+router.delete('/practicantes/:id', invalPro, deletePracticante)
 
-router.get('/trabajadores', listTrabajadores)
-router.post('/trabajadores', createTrabajador)
-router.put('/trabajadores/:id', updateTrabajador)
-router.delete('/trabajadores/:id', deleteTrabajador)
+router.get('/facultades', cacheMiddleware(), listFacultades)
+router.post('/facultades', invalFac, createFacultad)
+router.put('/facultades/:id', invalFac, updateFacultad)
+router.delete('/facultades/:id', invalFac, deleteFacultad)
 
-router.get('/usuarios', listUsuarios)
-router.post('/usuarios', createUsuario)
-router.put('/usuarios/:id', updateUsuario)
-router.delete('/usuarios/:id', deleteUsuario)
+router.get('/trabajadores', cacheMiddleware(), listTrabajadores)
+router.post('/trabajadores', invalTra, createTrabajador)
+router.put('/trabajadores/:id', invalTra, updateTrabajador)
+router.delete('/trabajadores/:id', invalTra, deleteTrabajador)
+
+router.get('/usuarios', cacheMiddleware(), listUsuarios)
+router.post('/usuarios', invalUsu, createUsuario)
+router.put('/usuarios/:id', invalUsu, updateUsuario)
+router.delete('/usuarios/:id', invalUsu, deleteUsuario)
 
 router.get('/asistencias/export', exportAsistencias)
-router.get('/asistencias', listAsistencias)
+router.get('/asistencias', cacheMiddleware(), listAsistencias)
 
 export default router
