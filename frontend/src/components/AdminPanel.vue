@@ -469,7 +469,7 @@ function isSelf(row) {
 <template>
   <div class="admin-panel">
     <div class="admin-inner">
-      <h2 class="admin-title">Panel de administración xD</h2>
+      <h2 class="admin-title">Panel de administración</h2>
 
       <div class="admin-tabs">
         <button
