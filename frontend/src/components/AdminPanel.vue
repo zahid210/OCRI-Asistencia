@@ -1,5 +1,8 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import AdminCrudTable from './admin/AdminCrudTable.vue'
+import AdminFormModal from './admin/AdminFormModal.vue'
+import AdminAsistFilters from './admin/AdminAsistFilters.vue'
 
 const props = defineProps({
   currentUser: { type: Object, default: null }
@@ -281,10 +284,6 @@ function applyAsistFiltros() {
   loadAsistencias()
 }
 
-function onAsistDniInput(event) {
-  asistFiltros.value.dni = event.target.value.replace(/\D+/g, '').slice(0, 8)
-}
-
 function clearAsistFiltros() {
   asistFiltros.value = { fecha: '', facultad_id: '', estado: '', dni: '' }
   asistPage.value = 1
@@ -373,38 +372,6 @@ function buildPayload() {
   return payload
 }
 
-function onFieldInput(field, event) {
-  let value = event.target.value
-  if (field.numeric) value = value.replace(/\D+/g, '').slice(0, 8)
-  form.value[field.key] = value
-}
-
-function numericSanitize(value) {
-  return String(value ?? '').replace(/\D+/g, '').slice(0, 8)
-}
-
-function onNumericKeydown(event) {
-  if (event.ctrlKey || event.metaKey || event.altKey) return
-  if (event.key.length === 1 && !/\d/.test(event.key)) event.preventDefault()
-}
-
-function onFieldKeydown(field, event) {
-  if (field.numeric) onNumericKeydown(event)
-}
-
-function onFieldPaste(field, event) {
-  if (!field.numeric) return
-  event.preventDefault()
-  const text = (event.clipboardData?.getData('text') ?? '').replace(/\D+/g, '')
-  form.value[field.key] = numericSanitize((form.value[field.key] ?? '') + text)
-}
-
-function onAsistDniPaste(event) {
-  event.preventDefault()
-  const text = (event.clipboardData?.getData('text') ?? '').replace(/\D+/g, '')
-  asistFiltros.value.dni = numericSanitize((asistFiltros.value.dni ?? '') + text)
-}
-
 async function saveForm() {
   saving.value = true
   formError.value = ''
@@ -484,6 +451,11 @@ function isSelf(row) {
     Number(row.id) === Number(props.currentUser.id)
   )
 }
+
+function changeAsistPage(page) {
+  asistPage.value = page
+  loadAsistencias()
+}
 </script>
 
 <template>
@@ -512,43 +484,15 @@ function isSelf(row) {
         <div class="admin-card-head">
           <span class="admin-count">{{ currentCount }} registro(s)</span>
 
-          <div v-if="activeTab === 'asistencias'" class="asist-filters">
-            <input v-model="asistFiltros.fecha" type="date" class="asist-input" title="Fecha" />
-            <select v-model="asistFiltros.facultad_id" class="asist-input asist-select">
-              <option value="">Todas las facultades</option>
-              <option v-for="f in lists.facultades" :key="f.id" :value="f.id">
-                {{ f.nombre }}
-              </option>
-            </select>
-            <select v-model="asistFiltros.estado" class="asist-input asist-select">
-              <option value="">Todos los estados</option>
-              <option v-for="e in ['PENDIENTE', 'COMPLETA', 'AUSENTE', 'JUSTIFICADA']" :key="e">
-                {{ e }}
-              </option>
-            </select>
-            <input
-              :value="asistFiltros.dni"
-              type="text"
-              class="asist-input"
-              size="8"
-              inputmode="numeric"
-              maxlength="8"
-              placeholder="DNI"
-              @input="onAsistDniInput"
-              @keydown="onNumericKeydown"
-              @paste="onAsistDniPaste"
-            />
-            <button type="button" class="admin-btn" @click="applyAsistFiltros">Buscar</button>
-            <button type="button" class="admin-btn" @click="clearAsistFiltros">Limpiar</button>
-            <button
-              type="button"
-              class="admin-btn admin-btn-primary"
-              :disabled="asistExporting"
-              @click="exportCsv"
-            >
-              {{ asistExporting ? 'Exportando…' : 'Exportar CSV' }}
-            </button>
-          </div>
+          <AdminAsistFilters
+            v-if="activeTab === 'asistencias'"
+            :filtros="asistFiltros"
+            :facultades="lists.facultades"
+            :exporting="asistExporting"
+            @buscar="applyAsistFiltros"
+            @limpiar="clearAsistFiltros"
+            @exportar="exportCsv"
+          />
 
           <button
             v-else
@@ -560,139 +504,37 @@ function isSelf(row) {
           </button>
         </div>
 
-        <div class="admin-table-wrap">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th v-for="c in columns[activeTab]" :key="c.key">{{ c.label }}</th>
-                <th v-if="activeTab !== 'asistencias'" class="admin-actions-col">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in lists[activeTab]" :key="row.id">
-                <td v-for="c in columns[activeTab]" :key="c.key">
-                  <span v-if="c.key === 'estado'" class="admin-badge" :class="row.estado">
-                    {{ row.estado }}
-                  </span>
-                  <span v-else>{{ c.render ? c.render(row) : row[c.key] ?? '—' }}</span>
-                </td>
-                <td v-if="activeTab !== 'asistencias'" class="admin-actions">
-                  <button class="admin-btn" @click="openEdit(row)">Editar</button>
-                  <button
-                    v-if="!isSelf(row)"
-                    class="admin-btn"
-                    :title="row.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'"
-                    @click="toggleEstado(row)"
-                  >
-                    {{ row.estado === 'ACTIVO' ? 'Desactivar' : 'Activar' }}
-                  </button>
-                  <button
-                    v-if="!isSelf(row)"
-                    class="admin-btn admin-btn-danger"
-                    @click="requestDelete(row)"
-                  >
-                    Eliminar
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div v-if="activeTab === 'asistencias' && asistPages > 1" class="admin-pagination">
-          <button
-            type="button"
-            class="admin-btn"
-            :disabled="asistPage <= 1"
-            @click="asistPage--; loadAsistencias()"
-          >
-            ‹ Anterior
-          </button>
-          <span class="admin-page-info">Página {{ asistPage }} de {{ asistPages }}</span>
-          <button
-            type="button"
-            class="admin-btn"
-            :disabled="asistPage >= asistPages"
-            @click="asistPage++; loadAsistencias()"
-          >
-            Siguiente ›
-          </button>
-        </div>
+        <AdminCrudTable
+          :columns="columns[activeTab]"
+          :rows="lists[activeTab]"
+          :show-actions="activeTab !== 'asistencias'"
+          :is-self="isSelf"
+          :page="asistPage"
+          :pages="asistPages"
+          @edit="openEdit"
+          @toggle-estado="toggleEstado"
+          @delete="requestDelete"
+          @page-change="changeAsistPage"
+        />
 
         <p v-if="loading" class="admin-note">Cargando…</p>
         <p v-else-if="!currentCount" class="admin-note">Sin registros.</p>
       </div>
     </div>
 
-    <div v-if="formOpen" class="modal-overlay" @click.self="closeForm">
-      <div class="modal-card">
-        <h3 class="modal-title">{{ editingId ? 'Editar' : 'Nuevo' }} — {{ activeTabLabel }}</h3>
-        <form @submit.prevent="saveForm">
-          <div class="modal-grid">
-            <label
-              v-for="f in fieldConfigs[activeTab]"
-              :key="f.key"
-              class="modal-field"
-            >
-              <span class="modal-label">
-                {{ f.label }}
-                <span v-if="f.required && !f.editOptional" class="req">*</span>
-                <span v-else-if="f.key === 'password' && editingId" class="req-opt">
-                  (opcional)
-                </span>
-              </span>
-
-              <select
-                v-if="f.type === 'select'"
-                v-model="form[f.key]"
-                :disabled="isSelfEditing && (f.key === 'estado' || f.key === 'rol')"
-              >
-                <option v-if="f.allowEmpty" value="">— Sin asignar —</option>
-                <template v-if="f.options === 'facultades'">
-                  <option v-for="o in lists.facultades" :key="o.id" :value="o.id">
-                    {{ o.nombre }}
-                  </option>
-                </template>
-                <template v-else-if="f.options === 'trabajadores'">
-                  <option v-for="o in lists.trabajadores" :key="o.id" :value="o.id">
-                    {{ o.nombre }} {{ o.apellidos }}
-                  </option>
-                </template>
-                <option v-for="o in f.options" v-else :key="o" :value="o">
-                  {{ o }}
-                </option>
-              </select>
-
-              <input
-              v-else
-              :value="form[f.key]"
-              :type="f.type"
-              :inputmode="f.numeric ? 'numeric' : undefined"
-              :maxlength="f.maxlength"
-              :minlength="f.type === 'password' ? f.min : undefined"
-              :min="f.min"
-              :max="f.max"
-              :step="f.type === 'number' ? 1 : undefined"
-              @input="onFieldInput(f, $event)"
-              @keydown="onFieldKeydown(f, $event)"
-              @paste="onFieldPaste(f, $event)"
-            />
-            </label>
-          </div>
-
-          <Transition name="err">
-            <p v-if="formError" class="modal-error">{{ formError }}</p>
-          </Transition>
-
-          <div class="modal-actions">
-            <button type="button" class="admin-btn" @click="closeForm">Cancelar</button>
-            <button type="submit" class="admin-btn admin-btn-primary" :disabled="saving">
-              {{ saving ? 'Guardando…' : 'Guardar' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <AdminFormModal
+      :open="formOpen"
+      :title="activeTabLabel"
+      :editing="!!editingId"
+      :fields="fieldConfigs[activeTab]"
+      :form="form"
+      :error="formError"
+      :saving="saving"
+      :is-self-editing="isSelfEditing"
+      :lists="lists"
+      @close="closeForm"
+      @save="saveForm"
+    />
 
     <div v-if="confirmState" class="modal-overlay" @click.self="cancelConfirm">
       <div class="modal-card modal-card-small">
@@ -799,162 +641,6 @@ function isSelf(row) {
   color: rgba(255, 255, 255, .6);
 }
 
-.asist-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.asist-input {
-  color-scheme: dark;
-  padding: 7px 12px;
-  border: 1px solid rgba(255, 255, 255, .25);
-  border-radius: 8px;
-  background-color: #1b1b1b;
-  color: rgba(255, 255, 255, .85);
-  font-size: 13px;
-  font-weight: 300;
-  outline: none;
-  transition: border-color .15s ease;
-}
-
-.asist-input.asist-select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 11px 7px;
-  padding-right: 32px;
-  cursor: pointer;
-}
-
-.asist-input option {
-  background: #181818;
-  color: #fff;
-}
-
-.asist-input:focus {
-  border-color: rgba(255, 255, 255, .55);
-}
-
-.asist-input::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  opacity: .6;
-  filter: invert(1);
-}
-
-.admin-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 12px 16px;
-  border-top: 1px solid rgba(255, 255, 255, .08);
-}
-
-.admin-page-info {
-  font-size: 12px;
-  font-weight: 200;
-  letter-spacing: .04em;
-  color: rgba(255, 255, 255, .5);
-}
-
-.admin-table-wrap {
-  overflow-x: auto;
-  max-height: 60vh;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 13px;
-  font-weight: 300;
-}
-
-.admin-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  text-align: left;
-  padding: 12px 16px;
-  font-size: 11px;
-  font-weight: 300;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, .5);
-  background: #181818;
-  border-bottom: 1px solid rgba(255, 255, 255, .12);
-  white-space: nowrap;
-  vertical-align: middle;
-}
-
-.admin-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, .07);
-  white-space: nowrap;
-  vertical-align: middle;
-}
-
-.admin-table tbody tr {
-  transition: background .15s ease;
-}
-
-.admin-table tbody tr:hover {
-  background: rgba(255, 255, 255, .05);
-}
-
-.admin-actions-col {
-  text-align: left;
-}
-
-.admin-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-start;
-}
-
-.admin-badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border: 1px solid rgba(255, 255, 255, .3);
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: .05em;
-}
-
-.admin-badge.ACTIVO,
-.admin-badge.COMPLETA {
-  color: #9fe8b1;
-  border-color: rgba(159, 232, 177, .4);
-  background: rgba(159, 232, 177, .08);
-}
-
-.admin-badge.JUSTIFICADA {
-  color: #a3c4ff;
-  border-color: rgba(163, 196, 255, .4);
-  background: rgba(163, 196, 255, .08);
-}
-
-.admin-badge.INACTIVO,
-.admin-badge.RETIRADO,
-.admin-badge.AUSENTE {
-  color: #ffb3b3;
-  border-color: rgba(255, 141, 141, .4);
-  background: rgba(255, 141, 141, .08);
-}
-
-.admin-badge.PENDIENTE,
-.admin-badge.EGRESADO {
-  color: #ffd9a3;
-  border-color: rgba(255, 217, 163, .4);
-  background: rgba(255, 217, 163, .08);
-}
-
 .admin-note {
   margin: 0;
   padding: 16px;
@@ -1032,96 +718,6 @@ function isSelf(row) {
   width: min(420px, 92vw);
 }
 
-.modal-title {
-  margin: 0 0 20px;
-  font-size: 19px;
-  font-weight: 200;
-  letter-spacing: .04em;
-}
-
-.modal-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.modal-field {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.modal-label {
-  font-size: 11px;
-  font-weight: 300;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, .62);
-}
-
-.req {
-  color: #ff9d9d;
-}
-
-.req-opt {
-  text-transform: none;
-  letter-spacing: 0;
-  color: rgba(255, 255, 255, .4);
-  font-size: 10px;
-}
-
-.modal-field input,
-.modal-field select {
-  width: 100%;
-  height: 42px;
-  padding: 0 13px;
-  border: 1px solid rgba(255, 255, 255, .28);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, .06);
-  color: #fff;
-  outline: none;
-  font-family: 'Inter', Arial, sans-serif;
-  font-size: 14px;
-  font-weight: 300;
-  transition: border-color .18s ease, background .18s ease;
-}
-
-.modal-field select option {
-  background: #181818;
-  color: #fff;
-}
-
-.modal-field input:focus,
-.modal-field select:focus {
-  border-color: rgba(255, 255, 255, .75);
-  background-color: rgba(255, 255, 255, .09);
-}
-
-.modal-field select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  background-color: rgba(255, 255, 255, .06);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 11px 7px;
-  padding-right: 32px;
-  cursor: pointer;
-}
-
-.modal-field select:disabled {
-  cursor: default;
-  opacity: .6;
-}
-
-.modal-error {
-  margin: 14px 0 0;
-  font-size: 12px;
-  font-weight: 300;
-  color: #ff9d9d;
-}
-
 .modal-text {
   margin: 0 0 20px;
   font-size: 14px;
@@ -1139,10 +735,6 @@ function isSelf(row) {
 @media (max-width: 860px) {
   .admin-panel {
     padding-top: 110px;
-  }
-
-  .modal-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>
