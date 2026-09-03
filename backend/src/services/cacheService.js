@@ -23,7 +23,9 @@ export function cacheInvalidate(prefix) {
   }
   const exact = '/api/' + prefix
   for (const key of store.keys()) {
-    if (key === exact || key.startsWith(exact + '/')) store.delete(key)
+    if (key === exact || key.startsWith(exact + '/') || key.startsWith(exact + '?')) {
+      store.delete(key)
+    }
   }
 }
 

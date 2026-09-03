@@ -113,7 +113,17 @@ const fieldConfigs = {
       options: ['ACTIVO', 'INACTIVO', 'EGRESADO', 'RETIRADO']
     }
   ],
-  asistencias: [],
+  asistencias: [
+    { key: 'hora_entrada', label: 'Hora de entrada', type: 'text', placeholder: 'HH:MM' },
+    { key: 'hora_salida', label: 'Hora de salida', type: 'text', placeholder: 'HH:MM' },
+    {
+      key: 'estado',
+      label: 'Estado',
+      type: 'select',
+      options: ['PENDIENTE', 'COMPLETA', 'AUSENTE', 'JUSTIFICADA']
+    },
+    { key: 'observacion', label: 'Observación', type: 'textarea', maxlength: 500 }
+  ],
   facultades: [
     { key: 'nombre', label: 'Nombre', type: 'text', required: true, maxlength: 150 },
     { key: 'abreviatura', label: 'Abreviatura', type: 'text', maxlength: 20 },
@@ -190,6 +200,16 @@ watch(formError, (value) => {
 const activeTabLabel = computed(
   () => tabs.find((t) => t.key === activeTab.value)?.label ?? ''
 )
+
+const editModalTitle = computed(() => {
+  if (activeTab.value !== 'asistencias' || !editingId.value) return activeTabLabel.value
+  const r = lists.value.asistencias.find((a) => a.id === editingId.value)
+  if (!r) return activeTabLabel.value
+  const practicante = r.Practicante
+    ? `${r.Practicante.apellidos}, ${r.Practicante.nombre}`
+    : ''
+  return `Asistencia · ${formatFecha(r.fecha)}${practicante ? ' · ' + practicante : ''}`
+})
 
 const isSelfEditing = computed(
   () =>
@@ -424,7 +444,11 @@ async function saveForm() {
       }
     )
     formOpen.value = false
-    await loadAll()
+    if (tab === 'asistencias') {
+      await loadAsistencias()
+    } else {
+      await loadAll()
+    }
   } catch (e) {
     formError.value = e.message
   } finally {
@@ -557,9 +581,10 @@ function closeHistorial() {
         <AdminCrudTable
           :columns="columns[activeTab]"
           :rows="activeTab === 'practicantes' ? filteredPracticantes : lists[activeTab]"
-          :show-actions="activeTab !== 'asistencias'"
+          :show-actions="true"
           :is-self="isSelf"
           :show-history="activeTab === 'practicantes'"
+          :edit-only="activeTab === 'asistencias'"
           :page="asistPage"
           :pages="asistPages"
           @edit="openEdit"
@@ -576,7 +601,7 @@ function closeHistorial() {
 
     <AdminFormModal
       :open="formOpen"
-      :title="activeTabLabel"
+      :title="editModalTitle"
       :editing="!!editingId"
       :fields="fieldConfigs[activeTab]"
       :form="form"

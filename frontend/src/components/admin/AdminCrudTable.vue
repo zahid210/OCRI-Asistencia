@@ -5,6 +5,7 @@ defineProps({
   showActions: { type: Boolean, default: true },
   isSelf: { type: Function, default: () => false },
   showHistory: { type: Boolean, default: false },
+  editOnly: { type: Boolean, default: false },
   page: { type: Number, default: 1 },
   pages: { type: Number, default: 1 }
 })
@@ -40,7 +41,7 @@ const emit = defineEmits(['edit', 'toggle-estado', 'delete', 'page-change', 'his
               </button>
               <button class="admin-btn" @click="emit('edit', row)">Editar</button>
               <button
-                v-if="!isSelf(row)"
+                v-if="!editOnly && !isSelf(row)"
                 class="admin-btn"
                 :title="row.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'"
                 @click="emit('toggle-estado', row)"
@@ -48,7 +49,7 @@ const emit = defineEmits(['edit', 'toggle-estado', 'delete', 'page-change', 'his
                 {{ row.estado === 'ACTIVO' ? 'Desactivar' : 'Activar' }}
               </button>
               <button
-                v-if="!isSelf(row)"
+                v-if="!editOnly && !isSelf(row)"
                 class="admin-btn admin-btn-danger"
                 @click="emit('delete', row)"
               >

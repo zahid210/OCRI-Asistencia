@@ -294,3 +294,41 @@ export async function listAsistencias(req, res) {
     handleError(res, err)
   }
 }
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/
+
+export async function updateAsistencia(req, res) {
+  try {
+    const id = req.params.id
+    if (!Number.isInteger(Number(id))) throw new ApiError(400, 'Asistencia inválida.')
+
+    const asistencia = await Asistencia.findByPk(id)
+    if (!asistencia) throw new ApiError(404, 'Asistencia no encontrada.')
+
+    const { hora_entrada, hora_salida, estado, observacion } = req.body
+
+    if (`${hora_entrada ?? ''}`.length && hora_entrada !== null && !TIME_RE.test(hora_entrada)) {
+      throw new ApiError(400, 'Hora de entrada inválida (HH:MM).')
+    }
+    if (`${hora_salida ?? ''}`.length && hora_salida !== null && !TIME_RE.test(hora_salida)) {
+      throw new ApiError(400, 'Hora de salida inválida (HH:MM).')
+    }
+    if (estado !== undefined && !ASIST_ESTADOS.includes(estado)) {
+      throw new ApiError(400, 'Estado inválido.')
+    }
+    if (observacion !== undefined && observacion !== null && String(observacion).length > 500) {
+      throw new ApiError(400, 'La observación no puede exceder 500 caracteres.')
+    }
+
+    const changes = {}
+    if (hora_entrada !== undefined) changes.hora_entrada = hora_entrada || null
+    if (hora_salida !== undefined) changes.hora_salida = hora_salida || null
+    if (estado !== undefined) changes.estado = estado
+    if (observacion !== undefined) changes.observacion = observacion || null
+
+    await asistencia.update(changes)
+    res.json({ success: true, data: asistencia })
+  } catch (err) {
+    handleError(res, err)
+  }
+}

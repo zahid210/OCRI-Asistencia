@@ -55,8 +55,16 @@ function onFieldPaste(field, event) {
               </span>
             </span>
 
+            <textarea
+              v-if="f.type === 'textarea'"
+              v-model="form[f.key]"
+              :maxlength="f.maxlength"
+              class="modal-textarea"
+              rows="3"
+            ></textarea>
+
             <select
-              v-if="f.type === 'select'"
+              v-else-if="f.type === 'select'"
               v-model="form[f.key]"
               :disabled="isSelfEditing && (f.key === 'estado' || f.key === 'rol')"
             >
@@ -86,6 +94,7 @@ function onFieldPaste(field, event) {
               :min="f.min"
               :max="f.max"
               :step="f.type === 'number' ? 1 : undefined"
+              :placeholder="f.placeholder"
               @input="onFieldInput(f, $event)"
               @keydown="onFieldKeydown(f, $event)"
               @paste="onFieldPaste(f, $event)"
@@ -172,7 +181,8 @@ function onFieldPaste(field, event) {
 }
 
 .modal-field input,
-.modal-field select {
+.modal-field select,
+.modal-field textarea {
   width: 100%;
   height: 42px;
   padding: 0 13px;
@@ -187,13 +197,22 @@ function onFieldPaste(field, event) {
   transition: border-color .18s ease, background .18s ease;
 }
 
+.modal-field textarea {
+  height: auto;
+  min-height: 76px;
+  padding: 10px 13px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
 .modal-field select option {
   background: #181818;
   color: #fff;
 }
 
 .modal-field input:focus,
-.modal-field select:focus {
+.modal-field select:focus,
+.modal-field textarea:focus {
   border-color: rgba(255, 255, 255, .75);
   background-color: rgba(255, 255, 255, .09);
 }

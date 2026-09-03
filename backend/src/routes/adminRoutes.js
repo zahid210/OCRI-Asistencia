@@ -18,7 +18,8 @@ import {
   deleteUsuario,
   exportAsistencias,
   listAsistencias,
-  historialPracticante
+  historialPracticante,
+  updateAsistencia
 } from '../controllers/adminController.js'
 import { authRequired, requireAdmin } from '../middleware/authMiddleware.js'
 import { cacheMiddleware, cacheInvalidate } from '../services/cacheService.js'
@@ -57,5 +58,6 @@ router.delete('/usuarios/:id', invalUsu, deleteUsuario)
 
 router.get('/asistencias/export', exportAsistencias)
 router.get('/asistencias', cacheMiddleware(), listAsistencias)
+router.put('/asistencias/:id', invalAsis, updateAsistencia)
 
 export default router
