@@ -206,6 +206,31 @@ const ASIST_HEADER = [
   'Observación'
 ]
 
+export async function historialPracticante(req, res) {
+  try {
+    const practicanteId = req.params.id
+    if (!Number.isInteger(Number(practicanteId))) {
+      throw new ApiError(400, 'Practicante inválido.')
+    }
+
+    const practicante = await Practicante.findByPk(practicanteId, {
+      include: [{ model: Facultad }]
+    })
+    if (!practicante) throw new ApiError(404, 'Practicante no encontrado.')
+
+    const limit = Math.min(Number(req.query.limit) || 30, 100)
+    const rows = await Asistencia.findAll({
+      where: { practicante_id: practicanteId },
+      order: [['fecha', 'DESC'], ['id', 'DESC']],
+      limit
+    })
+
+    res.json({ success: true, practicante, data: rows })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
 export async function exportAsistencias(req, res) {
   try {
     const { where, include } = asistFilters(req.query)

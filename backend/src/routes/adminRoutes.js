@@ -17,7 +17,8 @@ import {
   updateUsuario,
   deleteUsuario,
   exportAsistencias,
-  listAsistencias
+  listAsistencias,
+  historialPracticante
 } from '../controllers/adminController.js'
 import { authRequired, requireAdmin } from '../middleware/authMiddleware.js'
 import { cacheMiddleware, cacheInvalidate } from '../services/cacheService.js'
@@ -34,6 +35,7 @@ const invalUsu = (_req, _res, next) => { cacheInvalidate('admin/usuarios'); next
 const invalAsis = (_req, _res, next) => { cacheInvalidate('admin/asistencias'); next() }
 
 router.get('/practicantes', cacheMiddleware(), listPracticantes)
+router.get('/practicantes/:id/historial', cacheMiddleware(), historialPracticante)
 router.post('/practicantes', invalPro, createPracticante)
 router.put('/practicantes/:id', invalPro, updatePracticante)
 router.delete('/practicantes/:id', invalPro, deletePracticante)

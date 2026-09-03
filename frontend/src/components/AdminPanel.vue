@@ -160,6 +160,12 @@ const asistTotal = ref(0)
 const asistPages = ref(1)
 const asistExporting = ref(false)
 
+const practicanteBusqueda = ref('')
+const historialOpen = ref(false)
+const historialPracticante = ref(null)
+const historialList = ref([])
+const historialLoading = ref(false)
+
 const formOpen = ref(false)
 const editingId = ref(null)
 const form = ref({})
@@ -196,8 +202,23 @@ const isSelfEditing = computed(
 const currentCount = computed(() =>
   activeTab.value === 'asistencias'
     ? asistTotal.value
-    : lists.value[activeTab.value]?.length ?? 0
+    : (activeTab.value === 'practicantes'
+        ? filteredPracticantes.value.length
+        : lists.value[activeTab.value]?.length ?? 0)
 )
+
+const filteredPracticantes = computed(() => {
+  const rows = lists.value.practicantes ?? []
+  const q = practicanteBusqueda.value.trim().toLowerCase()
+  if (!q) return rows
+  return rows.filter(
+    (p) =>
+      String(p.dni ?? '').includes(q) ||
+      String(p.nombre ?? '').toLowerCase().includes(q) ||
+      String(p.apellidos ?? '').toLowerCase().includes(q) ||
+      String(p.codigo_alumno ?? '').toLowerCase().includes(q)
+  )
+})
 
 function authHeaders() {
   const token = localStorage.getItem(TOKEN_KEY)
@@ -456,6 +477,27 @@ function changeAsistPage(page) {
   asistPage.value = page
   loadAsistencias()
 }
+
+async function openHistorial(row) {
+  historialOpen.value = true
+  historialPracticante.value = row
+  historialList.value = []
+  historialLoading.value = true
+  try {
+    const { data } = await api(`/api/admin/practicantes/${row.id}/historial`)
+    historialList.value = data
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    historialLoading.value = false
+  }
+}
+
+function closeHistorial() {
+  historialOpen.value = false
+  historialPracticante.value = null
+  historialList.value = []
+}
 </script>
 
 <template>
@@ -494,26 +536,36 @@ function changeAsistPage(page) {
             @exportar="exportCsv"
           />
 
-          <button
-            v-else
-            type="button"
-            class="admin-btn admin-btn-primary"
-            @click="openCreate"
-          >
-            Nuevo
-          </button>
+          <div v-else class="admin-head-right">
+            <input
+              v-if="activeTab === 'practicantes'"
+              v-model="practicanteBusqueda"
+              type="text"
+              class="admin-search"
+              placeholder="Buscar por DNI, nombre o código…"
+            />
+            <button
+              type="button"
+              class="admin-btn admin-btn-primary"
+              @click="openCreate"
+            >
+              Nuevo
+            </button>
+          </div>
         </div>
 
         <AdminCrudTable
           :columns="columns[activeTab]"
-          :rows="lists[activeTab]"
+          :rows="activeTab === 'practicantes' ? filteredPracticantes : lists[activeTab]"
           :show-actions="activeTab !== 'asistencias'"
           :is-self="isSelf"
+          :show-history="activeTab === 'practicantes'"
           :page="asistPage"
           :pages="asistPages"
           @edit="openEdit"
           @toggle-estado="toggleEstado"
           @delete="requestDelete"
+          @history="openHistorial"
           @page-change="changeAsistPage"
         />
 
@@ -545,6 +597,42 @@ function changeAsistPage(page) {
             Eliminar
           </button>
         </div>
+      </div>
+    </div>
+
+    <div v-if="historialOpen" class="modal-overlay" @click.self="closeHistorial">
+      <div class="modal-card modal-card-historial">
+        <div class="modal-card-head">
+          <h3 class="modal-title">
+            Historial de {{ historialPracticante?.nombre }} {{ historialPracticante?.apellidos }}
+          </h3>
+          <button type="button" class="admin-btn" @click="closeHistorial">Cerrar</button>
+        </div>
+
+        <p v-if="historialLoading" class="admin-note">Cargando historial…</p>
+        <p v-else-if="!historialList.length" class="admin-note">Sin asistencias registradas.</p>
+        <table v-else class="admin-table historial-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Entrada</th>
+              <th>Salida</th>
+              <th>Estado</th>
+              <th>Observación</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="a in historialList" :key="a.id">
+              <td>{{ formatFecha(a.fecha) }}</td>
+              <td>{{ a.hora_entrada ?? '—' }}</td>
+              <td>{{ a.hora_salida ?? '—' }}</td>
+              <td>
+                <span class="historial-badge" :class="a.estado">{{ a.estado }}</span>
+              </td>
+              <td>{{ a.observacion || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -730,6 +818,118 @@ function changeAsistPage(page) {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 22px;
+}
+
+.admin-head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-search {
+  padding: 7px 14px;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .06);
+  color: #fff;
+  font-family: 'Inter', Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  outline: none;
+  transition: border-color .18s ease, background .18s ease;
+}
+
+.admin-search::placeholder {
+  color: rgba(255, 255, 255, .4);
+}
+
+.admin-search:focus {
+  border-color: rgba(255, 255, 255, .7);
+  background: rgba(255, 255, 255, .1);
+}
+
+.modal-card-historial {
+  width: min(720px, 94vw);
+}
+
+.modal-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 300;
+  letter-spacing: .03em;
+}
+
+.historial-table {
+  font-size: 13px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-weight: 300;
+}
+
+.historial-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 300;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .5);
+  background: #181818;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  white-space: nowrap;
+}
+
+.historial-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+  white-space: nowrap;
+}
+
+.historial-table tbody tr:hover {
+  background: rgba(255, 255, 255, .05);
+}
+
+.historial-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .05em;
+  color: #ffd9a3;
+  border-color: rgba(255, 217, 163, .4);
+  background: rgba(255, 217, 163, .08);
+}
+
+.historial-badge.COMPLETA {
+  color: #9fe8b1;
+  border-color: rgba(159, 232, 177, .4);
+  background: rgba(159, 232, 177, .08);
+}
+
+.historial-badge.JUSTIFICADA {
+  color: #a3c4ff;
+  border-color: rgba(163, 196, 255, .4);
+  background: rgba(163, 196, 255, .08);
+}
+
+.historial-badge.AUSENTE {
+  color: #ffb3b3;
+  border-color: rgba(255, 141, 141, .4);
+  background: rgba(255, 141, 141, .08);
 }
 
 @media (max-width: 860px) {

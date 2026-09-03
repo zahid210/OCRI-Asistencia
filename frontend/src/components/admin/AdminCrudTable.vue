@@ -4,11 +4,12 @@ defineProps({
   rows: { type: Array, default: () => [] },
   showActions: { type: Boolean, default: true },
   isSelf: { type: Function, default: () => false },
+  showHistory: { type: Boolean, default: false },
   page: { type: Number, default: 1 },
   pages: { type: Number, default: 1 }
 })
 
-const emit = defineEmits(['edit', 'toggle-estado', 'delete', 'page-change'])
+const emit = defineEmits(['edit', 'toggle-estado', 'delete', 'page-change', 'history'])
 </script>
 
 <template>
@@ -30,6 +31,13 @@ const emit = defineEmits(['edit', 'toggle-estado', 'delete', 'page-change'])
               <span v-else>{{ c.render ? c.render(row) : row[c.key] ?? '—' }}</span>
             </td>
             <td v-if="showActions" class="admin-actions">
+              <button
+                v-if="showHistory"
+                class="admin-btn"
+                @click="emit('history', row)"
+              >
+                Historial
+              </button>
               <button class="admin-btn" @click="emit('edit', row)">Editar</button>
               <button
                 v-if="!isSelf(row)"
