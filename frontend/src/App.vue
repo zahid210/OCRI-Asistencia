@@ -2,8 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AdminPanel from './components/AdminPanel.vue'
 import { useNotifications } from './composables/useNotifications.js'
-
-const TOKEN_KEY = 'ocri_token'
+import { useAuth } from './composables/useAuth.js'
 
 const dni = ref('')
 const currentTime = ref('--:--')
@@ -11,13 +10,7 @@ const currentSeconds = ref('--')
 const meridiem = ref('')
 const submitting = ref(false)
 
-const user = ref(null)
 const view = ref('attendance')
-const authLoading = ref(true)
-const loginUsuario = ref('')
-const loginPassword = ref('')
-const loginError = ref('')
-const loginSubmitting = ref(false)
 
 const dniInput = ref(null)
 const usuarioInput = ref(null)
@@ -28,6 +21,7 @@ let clockTimer
 let shakeTimer
 let loginErrorTimer = null
 
+const { user, authLoading, loginUsuario, loginPassword, loginError, loginSubmitting, authHeaders, restoreSession, login, logout } = useAuth()
 const { notifications, pushNotification } = useNotifications()
 
 watch(loginError, (value) => {
@@ -43,35 +37,7 @@ function shakeField(el) {
   setTimeout(() => el.classList.remove('shake'), 550)
 }
 
-function authHeaders() {
-  const token = localStorage.getItem(TOKEN_KEY)
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
-async function restoreSession() {
-  const token = localStorage.getItem(TOKEN_KEY)
-  if (!token) {
-    authLoading.value = false
-    return
-  }
-  try {
-    const response = await fetch('/api/auth/me', { headers: authHeaders() })
-    const data = await response.json()
-    if (!response.ok || !data.success) {
-      localStorage.removeItem(TOKEN_KEY)
-    } else {
-      user.value = data.user
-    }
-  } catch {
-    localStorage.removeItem(TOKEN_KEY)
-  } finally {
-    authLoading.value = false
-  }
-}
-
-async function login() {
-  if (loginSubmitting.value) return
-
+async function submitLogin() {
   loginError.value = ''
 
   const usuarioFilled = Boolean(loginUsuario.value.trim())
@@ -81,51 +47,22 @@ async function login() {
   if (!passwordFilled) shakeField(passwordField.value)
   if (!usuarioFilled || !passwordFilled) return
 
-  loginSubmitting.value = true
+  const ok = await login()
 
-  try {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        usuario: loginUsuario.value.trim(),
-        password: loginPassword.value
-      })
-    })
-
-    const data = await response.json()
-
-    if (response.status === 401) {
-      shakeField(usuarioField.value)
-      shakeField(passwordField.value)
-      loginError.value = data.message || 'Credenciales inválidas.'
-      return
-    }
-
-    if (!response.ok) throw new Error(data.message || 'No se pudo iniciar sesión')
-
-    localStorage.setItem(TOKEN_KEY, data.token)
-    user.value = data.user
-    loginUsuario.value = ''
-    loginPassword.value = ''
-  } catch (error) {
-    loginError.value = error.message || 'No se pudo iniciar sesión.'
-  } finally {
-    loginSubmitting.value = false
+  if (!ok && loginError.value === 'Credenciales inválidas.') {
+    shakeField(usuarioField.value)
+    shakeField(passwordField.value)
   }
 }
 
-function logout() {
-  localStorage.removeItem(TOKEN_KEY)
-  user.value = null
+function logoutAndReset() {
+  logout()
   view.value = 'attendance'
   dni.value = ''
-  loginError.value = ''
-  loginPassword.value = ''
 }
 
 function handleSessionExpired() {
-  logout()
+  logoutAndReset()
   pushNotification({
     title: 'Sesión expirada',
     name: 'Vuelva a iniciar sesión.',
@@ -234,7 +171,7 @@ async function registerAttendance() {
     const data = await response.json()
 
     if (response.status === 401) {
-      logout()
+      logoutAndReset()
       pushNotification({
         title: 'Sesión expirada',
         name: 'Vuelva a iniciar sesión.',
@@ -407,7 +344,7 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-if="!authLoading">
-      <form v-if="!user" class="login-form" @submit.prevent="login">
+      <form v-if="!user" class="login-form" @submit.prevent="submitLogin">
         <h1 class="login-title">Iniciar sesión</h1>
 
         <label ref="usuarioField" class="login-field">
@@ -472,7 +409,7 @@ onBeforeUnmount(() => {
           {{ user.trabajador?.nombre }} {{ user.trabajador?.apellidos }}
         </span>
       </div>
-      <button class="logout-button" type="button" @click="logout">
+      <button class="logout-button" type="button" @click="logoutAndReset">
         Cerrar sesión
       </button>
     </div>
