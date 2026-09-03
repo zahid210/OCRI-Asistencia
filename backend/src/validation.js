@@ -2,7 +2,7 @@ export const LIMITS = {
   nombre: 100,
   nombre_facultad: 150,
   apellidos: 150,
-  codigo_alumno: 30,
+  codigo_alumno: 11,
   codigo_trabajador: 30,
   abreviatura: 20,
   cargo: 100,

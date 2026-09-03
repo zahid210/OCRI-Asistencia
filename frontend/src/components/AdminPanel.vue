@@ -114,7 +114,7 @@ const fieldConfigs = {
     { key: 'dni', label: 'DNI', type: 'text', required: true, maxlength: 8, numeric: true },
     { key: 'nombre', label: 'Nombre', type: 'text', required: true, maxlength: 100 },
     { key: 'apellidos', label: 'Apellidos', type: 'text', required: true, maxlength: 150 },
-    { key: 'codigo_alumno', label: 'Código de alumno', type: 'text', required: true, maxlength: 30 },
+    { key: 'codigo_alumno', label: 'Código de alumno', type: 'text', required: true, maxlength: 11 },
     { key: 'facultad_id', label: 'Facultad', type: 'select', options: 'facultades', required: true },
     { key: 'ciclo', label: 'Ciclo', type: 'number', min: 1, max: 10 },
     {

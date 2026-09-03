@@ -43,7 +43,7 @@ export const Practicante = sequelize.define(
     nombre: { type: DataTypes.STRING(100), allowNull: false },
     apellidos: { type: DataTypes.STRING(150), allowNull: false },
     codigo_alumno: {
-      type: DataTypes.STRING(30),
+      type: DataTypes.STRING(11),
       allowNull: false,
       unique: 'uq_practicante_codigo'
     },
