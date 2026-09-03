@@ -499,8 +499,9 @@ function requestDelete(row) {
     const count = Number(row.asistencias_count ?? 0)
     message =
       count > 0
-        ? `Este practicante tiene ${count} registro(s) de asistencia. Si continúa, su historial también se eliminará. ¿Desea eliminarlo?`
-        : 'Este practicante no tiene asistencias registradas. ¿Desea eliminarlo por completo?'
+        ? `Este practicante tiene ${count} registro(s) de asistencia. Al confirmar, se eliminará PERMANENTEMENTE y no podrá recuperarse el historial, por lo que se perderá todo rastro de que esta persona trabajó en OCRI. ` +
+          '¿Desea eliminarlo definitivamente?'
+        : 'Este practicante no tiene asistencias registradas. Al confirmar, se eliminará PERMANENTEMENTE y no podrá recuperarse su registro. ¿Desea eliminarlo definitivamente?'
   }
   confirmState.value = {
     message,
@@ -660,8 +661,11 @@ function closeHistorial() {
     />
 
     <div v-if="confirmState" class="modal-overlay" @click.self="cancelConfirm">
-      <div class="modal-card modal-card-small">
-        <p class="modal-text">{{ confirmState.message }}</p>
+      <div class="modal-card modal-card-small modal-card-warning">
+        <div class="modal-warning-head">
+          <span class="modal-warning-icon">⚠</span>
+        </div>
+        <p class="modal-text modal-text-justify">{{ confirmState.message }}</p>
         <div class="modal-actions">
           <button type="button" class="admin-btn" @click="cancelConfirm">Cancelar</button>
           <button type="button" class="admin-btn admin-btn-danger" @click="confirmState.action">
@@ -877,11 +881,32 @@ function closeHistorial() {
   width: min(420px, 92vw);
 }
 
+.modal-card-warning {
+  border: 2px solid #e53935;
+}
+
+.modal-warning-head {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.modal-warning-icon {
+  font-size: 34px;
+  line-height: 1;
+  color: #e53935;
+}
+
 .modal-text {
   margin: 0 0 20px;
   font-size: 14px;
   font-weight: 300;
   line-height: 1.5;
+}
+
+.modal-text-justify {
+  text-align: justify;
+  line-height: 1.8;
 }
 
 .modal-actions {

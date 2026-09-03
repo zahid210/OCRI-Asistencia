@@ -1,6 +1,7 @@
 import { Op, literal } from 'sequelize'
 import bcrypt from 'bcryptjs'
 import { Asistencia, Facultad, Practicante, Trabajador, Usuario } from '../db.js'
+import sequelize from '../db.js'
 import { ENUMS, LIMITS, isDni } from '../validation.js'
 import { createCrud, ApiError, handleError } from '../services/crudService.js'
 import { runAbsentCheck } from '../services/ausentesService.js'
@@ -37,7 +38,22 @@ const practicanteCrud = createCrud({
 
 export const createPracticante = practicanteCrud.create
 export const updatePracticante = practicanteCrud.update
-export const deletePracticante = practicanteCrud.remove
+
+export async function deletePracticante(req, res) {
+  try {
+    const practicante = await Practicante.findByPk(req.params.id)
+    if (!practicante) throw new ApiError(404, 'Practicante no encontrado.')
+
+    await sequelize.transaction(async (tx) => {
+      await Asistencia.destroy({ where: { practicante_id: req.params.id }, transaction: tx })
+      await Practicante.destroy({ where: { id: req.params.id }, transaction: tx })
+    })
+
+    res.json({ success: true })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
 
 export async function listPracticantes(_req, res) {
   try {
