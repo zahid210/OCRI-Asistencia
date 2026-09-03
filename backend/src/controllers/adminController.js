@@ -1,4 +1,4 @@
-import { Op } from 'sequelize'
+import { Op, literal } from 'sequelize'
 import bcrypt from 'bcryptjs'
 import { Asistencia, Facultad, Practicante, Trabajador, Usuario } from '../db.js'
 import { ENUMS, LIMITS, isDni } from '../validation.js'
@@ -35,10 +35,36 @@ const practicanteCrud = createCrud({
   ]
 })
 
-export const listPracticantes = practicanteCrud.list
 export const createPracticante = practicanteCrud.create
 export const updatePracticante = practicanteCrud.update
 export const deletePracticante = practicanteCrud.remove
+
+export async function listPracticantes(_req, res) {
+  try {
+    const rows = await Practicante.findAll({
+      order: [['apellidos', 'ASC'], ['nombre', 'ASC']],
+      include: [{ model: Facultad }],
+      attributes: {
+        include: [
+          [
+            literal(
+              '(SELECT COUNT(*) FROM asistencias WHERE asistencias.practicante_id = Practicante.id)'
+            ),
+            'asistencias_count'
+          ]
+        ]
+      }
+    })
+    const data = rows.map((r) => {
+      const plain = r.get({ plain: true })
+      plain.asistencias_count = Number(plain.asistencias_count)
+      return plain
+    })
+    res.json({ success: true, data })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
 
 /* ------------------------- Facultades ------------------------- */
 

@@ -6,6 +6,7 @@ defineProps({
   isSelf: { type: Function, default: () => false },
   showHistory: { type: Boolean, default: false },
   editOnly: { type: Boolean, default: false },
+  canDelete: { type: Function, default: () => true },
   page: { type: Number, default: 1 },
   pages: { type: Number, default: 1 }
 })
@@ -49,7 +50,7 @@ const emit = defineEmits(['edit', 'toggle-estado', 'delete', 'page-change', 'his
                 {{ row.estado === 'ACTIVO' ? 'Desactivar' : 'Activar' }}
               </button>
               <button
-                v-if="!editOnly && !isSelf(row)"
+                v-if="!editOnly && !isSelf(row) && canDelete(row)"
                 class="admin-btn admin-btn-danger"
                 @click="emit('delete', row)"
               >

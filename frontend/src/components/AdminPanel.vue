@@ -486,9 +486,24 @@ async function saveForm() {
   }
 }
 
+function canDeleteRow(row) {
+  if (activeTab.value === 'practicantes' && row.estado === 'ACTIVO') {
+    return false
+  }
+  return true
+}
+
 function requestDelete(row) {
+  let message = '¿Eliminar este registro? Esta acción no se puede deshacer.'
+  if (activeTab.value === 'practicantes') {
+    const count = Number(row.asistencias_count ?? 0)
+    message =
+      count > 0
+        ? `Este practicante tiene ${count} registro(s) de asistencia. Si continúa, su historial también se eliminará. ¿Desea eliminarlo?`
+        : 'Este practicante no tiene asistencias registradas. ¿Desea eliminarlo por completo?'
+  }
   confirmState.value = {
-    message: '¿Eliminar este registro? Esta acción no se puede deshacer.',
+    message,
     action: async () => {
       try {
         await api(`/api/admin/${activeTab.value}/${row.id}`, { method: 'DELETE' })
@@ -615,6 +630,7 @@ function closeHistorial() {
           :is-self="isSelf"
           :show-history="activeTab === 'practicantes'"
           :edit-only="activeTab === 'asistencias'"
+          :can-delete="canDeleteRow"
           :page="asistPage"
           :pages="asistPages"
           @edit="openEdit"
