@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { Asistencia, Facultad, Practicante, Trabajador, Usuario } from '../db.js'
 import { ENUMS, LIMITS, isDni } from '../validation.js'
 import { createCrud, ApiError, handleError } from '../services/crudService.js'
+import { runAbsentCheck } from '../services/ausentesService.js'
 
 /* ------------------------- definición de campos ------------------------- */
 
@@ -270,6 +271,11 @@ export async function exportAsistencias(req, res) {
 
 export async function listAsistencias(req, res) {
   try {
+    try {
+      await runAbsentCheck()
+      cacheInvalidate('admin/asistencias')
+    } catch (_e) { /* on-demand no debe romper el listado */ }
+
     const { where, include } = asistFilters(req.query)
     const limit = Math.min(Number(req.query.limit) || 50, 200)
     const page = Math.max(Number(req.query.page) || 1, 1)
@@ -297,6 +303,13 @@ export async function listAsistencias(req, res) {
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/
 
+const ALLOWED_STATE_TRANSITIONS = {
+  AUSENTE: ['AUSENTE', 'JUSTIFICADA'],
+  JUSTIFICADA: ['JUSTIFICADA', 'AUSENTE'],
+  COMPLETA: ['COMPLETA'],
+  PENDIENTE: []
+}
+
 export async function updateAsistencia(req, res) {
   try {
     const id = req.params.id
@@ -315,6 +328,13 @@ export async function updateAsistencia(req, res) {
     }
     if (estado !== undefined && !ASIST_ESTADOS.includes(estado)) {
       throw new ApiError(400, 'Estado inválido.')
+    }
+    if (
+      estado !== undefined &&
+      estado !== asistencia.estado &&
+      !ALLOWED_STATE_TRANSITIONS[asistencia.estado]?.includes(estado)
+    ) {
+      throw new ApiError(400, 'No se permite cambiar al estado seleccionado.')
     }
     if (observacion !== undefined && observacion !== null && String(observacion).length > 500) {
       throw new ApiError(400, 'La observación no puede exceder 500 caracteres.')

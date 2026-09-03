@@ -4,6 +4,7 @@ import { limaNow } from './timeService.js'
 
 export const WORK_START = '08:00:00'
 export const WORK_END = '20:00:00'
+export const ENTRY_END = '16:00:00'
 export const AUTO_CLOSE_TIME = '20:00:00'
 
 export class AttendanceServiceError extends Error {
@@ -14,7 +15,15 @@ export class AttendanceServiceError extends Error {
   }
 }
 
-function isWithinWorkHours(time) {
+function isAfterStart(time) {
+  return time > WORK_START
+}
+
+function isEntryTimeAllowed(time) {
+  return time > WORK_START && time < ENTRY_END
+}
+
+function isExitTimeAllowed(time) {
   return time > WORK_START && time < WORK_END
 }
 
@@ -55,20 +64,21 @@ export async function registerAttendance(dni) {
 
   const lima = limaNow()
 
-  if (!isWithinWorkHours(lima.time)) {
-    throw new AttendanceServiceError(
-      403,
-      'Fuera de horario laboral (8:00 a.m. - 8:00 p.m.).',
-      'OUTSIDE_WORK_HOURS'
-    )
-  }
-
   await autoClosePending(lima.date)
   let existing = await Asistencia.findOne({
     where: { practicante_id: practitioner.id, fecha: lima.date }
   })
 
   if (!existing) {
+    // Registrar entrada
+    if (!isEntryTimeAllowed(lima.time)) {
+      throw new AttendanceServiceError(
+        403,
+        'La entrada solo se registra hasta las 4:00 p.m.',
+        'OUTSIDE_ENTRY_HOURS'
+      )
+    }
+
     await Asistencia.create({
       practicante_id: practitioner.id,
       fecha: lima.date,
@@ -88,7 +98,24 @@ export async function registerAttendance(dni) {
     }
   }
 
+  if (existing.estado === 'AUSENTE') {
+    throw new AttendanceServiceError(
+      409,
+      'El practicante fue marcado como ausente hoy. No se puede registrar asistencia.',
+      'ALREADY_ABSENT'
+    )
+  }
+
   if (existing.hora_salida == null) {
+    // Registrar salida
+    if (!isExitTimeAllowed(lima.time)) {
+      throw new AttendanceServiceError(
+        403,
+        'Fuera de horario laboral (8:00 a.m. - 8:00 p.m.).',
+        'OUTSIDE_WORK_HOURS'
+      )
+    }
+
     await Asistencia.update(
       { hora_salida: lima.time, estado: 'COMPLETA' },
       { where: { id: existing.id } }

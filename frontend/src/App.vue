@@ -189,6 +189,20 @@ async function registerAttendance() {
           dni: '',
           error: true
         })
+      } else if (data.code === 'OUTSIDE_ENTRY_HOURS') {
+        pushNotification({
+          title: 'Fuera de horario de entrada',
+          name: data.message || 'La entrada solo se registra hasta las 4:00 p.m.',
+          dni: '',
+          error: true
+        })
+      } else if (data.code === 'ALREADY_ABSENT') {
+        pushNotification({
+          title: 'Marcado como ausente',
+          name: data.message || 'El practicante fue marcado como ausente hoy.',
+          dni: '',
+          error: true
+        })
       } else {
         pushNotification({
           title: 'Aviso',

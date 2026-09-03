@@ -38,6 +38,8 @@ function onFieldPaste(field, event) {
   const text = (event.clipboardData?.getData('text') ?? '').replace(/\D+/g, '')
   props.form[field.key] = numericSanitize((props.form[field.key] ?? '') + text)
 }
+
+const timeSuggestions = ['08:00', '08:30', '09:00', '09:30', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00']
 </script>
 
 <template>
@@ -87,7 +89,7 @@ function onFieldPaste(field, event) {
             <input
               v-else
               :value="form[f.key]"
-              :type="f.type"
+              :type="f.type === 'time' ? 'time' : f.type"
               :inputmode="f.numeric ? 'numeric' : undefined"
               :maxlength="f.maxlength"
               :minlength="f.type === 'password' ? f.min : undefined"
@@ -95,10 +97,18 @@ function onFieldPaste(field, event) {
               :max="f.max"
               :step="f.type === 'number' ? 1 : undefined"
               :placeholder="f.placeholder"
+              :list="f.type === 'time' ? 'time-suggestions' : undefined"
               @input="onFieldInput(f, $event)"
               @keydown="onFieldKeydown(f, $event)"
               @paste="onFieldPaste(f, $event)"
             />
+            <datalist v-if="f.type === 'time'" id="time-suggestions">
+              <option
+                v-for="t in timeSuggestions"
+                :key="t"
+                :value="t"
+              >{{ t }}</option>
+            </datalist>
           </label>
         </div>
 

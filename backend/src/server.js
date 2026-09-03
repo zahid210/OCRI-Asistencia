@@ -9,6 +9,7 @@ import attendanceRoutes from './routes/attendanceRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
 import { LIMA_TZ } from './services/timeService.js'
 import { runBootstrap } from './bootstrap.js'
+import { scheduleAbsentJob } from './services/ausentesService.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -80,3 +81,5 @@ try {
 app.listen(PORT, () => {
   console.log(`OCRI API ejecutándose en http://localhost:${PORT}`)
 })
+
+scheduleAbsentJob()

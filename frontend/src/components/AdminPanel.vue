@@ -32,6 +32,17 @@ function formatFecha(value) {
   return `${Number(d)}/${Number(m)}/${y}`
 }
 
+const ESTADO_TRANSICIONES = {
+  AUSENTE: ['AUSENTE', 'JUSTIFICADA'],
+  JUSTIFICADA: ['AUSENTE', 'JUSTIFICADA'],
+  COMPLETA: ['COMPLETA'],
+  PENDIENTE: []
+}
+
+function estadoOptions(estadoActual) {
+  return ESTADO_TRANSICIONES[estadoActual] ?? [estadoActual]
+}
+
 const columns = {
   practicantes: [
     { key: 'dni', label: 'DNI' },
@@ -114,8 +125,8 @@ const fieldConfigs = {
     }
   ],
   asistencias: [
-    { key: 'hora_entrada', label: 'Hora de entrada', type: 'text', placeholder: 'HH:MM' },
-    { key: 'hora_salida', label: 'Hora de salida', type: 'text', placeholder: 'HH:MM' },
+    { key: 'hora_entrada', label: 'Hora de entrada', type: 'time' },
+    { key: 'hora_salida', label: 'Hora de salida', type: 'time' },
     {
       key: 'estado',
       label: 'Estado',
@@ -209,6 +220,18 @@ const editModalTitle = computed(() => {
     ? `${r.Practicante.apellidos}, ${r.Practicante.nombre}`
     : ''
   return `Asistencia · ${formatFecha(r.fecha)}${practicante ? ' · ' + practicante : ''}`
+})
+
+const modalFields = computed(() => {
+  const fields = fieldConfigs[activeTab.value] ?? []
+  if (activeTab.value !== 'asistencias') return fields
+  const r = lists.value.asistencias.find((a) => a.id === editingId.value)
+  const actual = r?.estado ?? 'PENDIENTE'
+  return fields.map((f) =>
+    f.key === 'estado'
+      ? { ...f, options: estadoOptions(actual) }
+      : f
+  )
 })
 
 const isSelfEditing = computed(
@@ -394,6 +417,13 @@ function openCreate() {
 function openEdit(row) {
   editingId.value = row.id
   form.value = { ...row }
+  if (activeTab.value === 'asistencias') {
+    for (const key of ['hora_entrada', 'hora_salida']) {
+      if (typeof form.value[key] === 'string') {
+        form.value[key] = form.value[key].slice(0, 5)
+      }
+    }
+  }
   formError.value = ''
   formOpen.value = true
 }
@@ -603,7 +633,7 @@ function closeHistorial() {
       :open="formOpen"
       :title="editModalTitle"
       :editing="!!editingId"
-      :fields="fieldConfigs[activeTab]"
+      :fields="modalFields"
       :form="form"
       :error="formError"
       :saving="saving"
