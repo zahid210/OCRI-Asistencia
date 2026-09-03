@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AdminPanel from './components/AdminPanel.vue'
+import { useNotifications } from './composables/useNotifications.js'
 
 const TOKEN_KEY = 'ocri_token'
 
@@ -8,7 +9,6 @@ const dni = ref('')
 const currentTime = ref('--:--')
 const currentSeconds = ref('--')
 const meridiem = ref('')
-const notifications = ref([])
 const submitting = ref(false)
 
 const user = ref(null)
@@ -26,8 +26,9 @@ const passwordField = ref(null)
 
 let clockTimer
 let shakeTimer
-let notificationId = 0
 let loginErrorTimer = null
+
+const { notifications, pushNotification } = useNotifications()
 
 watch(loginError, (value) => {
   clearTimeout(loginErrorTimer)
@@ -143,15 +144,6 @@ watch(user, async (value) => {
     usuarioInput.value?.focus()
   }
 })
-
-function pushNotification({ title, name, dni: dniText, detail = '', error = false }) {
-  const id = ++notificationId
-  const item = { id, title, name, dni: dniText, detail, error }
-  notifications.value.push(item)
-  setTimeout(() => {
-    notifications.value = notifications.value.filter((n) => n.id !== id)
-  }, 3600)
-}
 
 const dots = computed(() =>
   Array.from({ length: 8 }, (_, index) => index < dni.value.length)
