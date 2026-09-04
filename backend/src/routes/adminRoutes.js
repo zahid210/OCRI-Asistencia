@@ -19,6 +19,7 @@ import {
   exportAsistencias,
   listAsistencias,
   historialPracticante,
+  reportePracticante,
   updateAsistencia
 } from '../controllers/adminController.js'
 import { authRequired, requireAdmin } from '../middleware/authMiddleware.js'
@@ -37,6 +38,7 @@ const invalAsis = (_req, _res, next) => { cacheInvalidate('admin/asistencias'); 
 
 router.get('/practicantes', cacheMiddleware(), listPracticantes)
 router.get('/practicantes/:id/historial', cacheMiddleware(), historialPracticante)
+router.get('/practicantes/:id/reporte', reportePracticante)
 router.post('/practicantes', invalPro, createPracticante)
 router.put('/practicantes/:id', invalPro, updatePracticante)
 router.delete('/practicantes/:id', invalPro, deletePracticante)

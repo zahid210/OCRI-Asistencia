@@ -568,6 +568,28 @@ function closeHistorial() {
   historialPracticante.value = null
   historialList.value = []
 }
+
+async function downloadReporte(row) {
+  if (!row) return
+  try {
+    const response = await fetch(`/api/admin/practicantes/${row.id}/reporte`, {
+      headers: authHeaders()
+    })
+    if (response.status === 401) {
+      emit('session-expired')
+      throw new Error('Sesión expirada. Inicie sesión nuevamente.')
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      throw new Error(data.message || 'No se pudo generar el reporte.')
+    }
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+  } catch (e) {
+    error.value = e.message
+  }
+}
 </script>
 
 <template>
@@ -681,6 +703,7 @@ function closeHistorial() {
           <h3 class="modal-title">
             Historial de {{ historialPracticante?.nombre }} {{ historialPracticante?.apellidos }}
           </h3>
+          <button type="button" class="admin-btn" @click="downloadReporte(historialPracticante)">Descargar reporte</button>
           <button type="button" class="admin-btn" @click="closeHistorial">Cerrar</button>
         </div>
 

@@ -5,6 +5,7 @@ import sequelize from '../db.js'
 import { ENUMS, LIMITS, isDni } from '../validation.js'
 import { createCrud, ApiError, handleError } from '../services/crudService.js'
 import { runAbsentCheck } from '../services/ausentesService.js'
+import { renderReportePdf } from '../services/reporteService.js'
 
 /* ------------------------- definición de campos ------------------------- */
 
@@ -269,6 +270,40 @@ export async function historialPracticante(req, res) {
     })
 
     res.json({ success: true, practicante, data: rows })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+export async function reportePracticante(req, res) {
+  try {
+    const practicanteId = Number(req.params.id)
+    if (!Number.isInteger(practicanteId)) {
+      throw new ApiError(400, 'Practicante inválido.')
+    }
+
+    const practicante = await Practicante.findByPk(practicanteId, {
+      include: [{ model: Facultad }]
+    })
+    if (!practicante) throw new ApiError(404, 'Practicante no encontrado.')
+
+    const asistencias = await Asistencia.findAll({
+      where: { practicante_id: practicanteId },
+      order: [['fecha', 'DESC'], ['id', 'DESC']]
+    })
+
+    const pdf = await renderReportePdf({
+      practicante: practicante.get({ plain: true }),
+      facultad: practicante.Facultad ? practicante.Facultad.get({ plain: true }) : null,
+      asistencias: asistencias.map((a) => a.get({ plain: true }))
+    })
+
+res.setHeader('Content-Type', 'application/pdf')
+res.setHeader(
+  'Content-Disposition',
+  `inline; filename="reporte-asistencia-${practicanteId}.pdf"`
+)
+    res.send(Buffer.from(pdf))
   } catch (err) {
     handleError(res, err)
   }
