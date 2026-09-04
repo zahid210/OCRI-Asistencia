@@ -8,6 +8,10 @@
     "start": "node src/server.js",
     "db:sync": "node src/sync.js",
     "db:sync:force": "node src/sync.js force",
+    "db:migrate": "node src/migrate.js up",
+    "db:migrate:down": "node src/migrate.js down",
+    "db:migrate:status": "node src/migrate.js pending",
+    "db:reset": "node src/migrate.js force",
     "db:seed": "node src/seed.js"
   },
   "dependencies": {
@@ -18,6 +22,10 @@
     "html-pdf-lite": "^1.2.2",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.23.3",
-    "sequelize": "^6.37.5"
+    "sequelize": "^6.37.5",
+    "umzug": "^3.8.3"
+  },
+  "devDependencies": {
+    "sequelize-cli": "^6.6.5"
   }
 }

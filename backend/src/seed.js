@@ -1,9 +1,11 @@
 import 'dotenv/config'
 import sequelize from './db.js'
 import { ensureDatabase, runSeed } from './bootstrap.js'
+import { createMigrator } from './migrate.js'
 
 try {
   await ensureDatabase()
+  await createMigrator().up()
   const r = await runSeed()
   console.log(
     `Seed completado: ${r.facultades} facultades, ` +

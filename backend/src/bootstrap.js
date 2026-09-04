@@ -5,6 +5,7 @@ import { readFileSync, existsSync } from 'fs'
 import mysql from 'mysql2/promise'
 import bcrypt from 'bcryptjs'
 import sequelize, { Asistencia, Facultad, Practicante, Trabajador, Usuario } from './db.js'
+import { createMigrator } from './migrate.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -191,12 +192,13 @@ export async function runSeed() {
 export async function runBootstrap() {
   const db = await ensureDatabase()
 
-  const tables = await sequelize.getQueryInterface().showAllTables()
-  if (tables.length > 0) {
+  await createMigrator().up()
+
+  const hasData = (await Facultad.count()) > 0 || (await Practicante.count()) > 0
+  if (hasData) {
     return { dbCreated: db.created, seeded: false }
   }
 
-  await sequelize.sync()
   const seed = await runSeed()
   return { dbCreated: db.created, seeded: true, ...seed }
 }
