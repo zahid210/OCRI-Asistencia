@@ -196,3 +196,7 @@ export async function renderReportePdf(datos) {
   const html = buildReporteHtml(datos)
   return renderPdfFromHtml(html, { loadTimeoutMs: 15000 })
 }
+
+export async function renderGenericoPdf(html) {
+  return renderPdfFromHtml(html, { loadTimeoutMs: 15000 })
+}

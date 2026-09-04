@@ -30,6 +30,9 @@ const emit = defineEmits(['edit', 'toggle-estado', 'delete', 'page-change', 'his
               <span v-if="c.key === 'estado'" class="admin-badge" :class="row.estado">
                 {{ row.estado }}
               </span>
+              <span v-else-if="c.badge" class="admin-badge" :class="row[c.key]">
+                {{ c.render ? c.render(row) : row[c.key] ?? '—' }}
+              </span>
               <span v-else>{{ c.render ? c.render(row) : row[c.key] ?? '—' }}</span>
             </td>
             <td v-if="showActions" class="admin-actions">
@@ -176,6 +179,48 @@ const emit = defineEmits(['edit', 'toggle-estado', 'delete', 'page-change', 'his
   color: #ffd9a3;
   border-color: rgba(255, 217, 163, .4);
   background: rgba(255, 217, 163, .08);
+}
+
+.admin-badge.CREATE,
+.admin-badge.LOGIN {
+  color: #9fe8b1;
+  border-color: rgba(159, 232, 177, .4);
+  background: rgba(159, 232, 177, .08);
+}
+
+.admin-badge.UPDATE,
+.admin-badge.REPORTE {
+  color: #a3c4ff;
+  border-color: rgba(163, 196, 255, .4);
+  background: rgba(163, 196, 255, .08);
+}
+
+.admin-badge.EXPORT {
+  color: #9fd8e8;
+  border-color: rgba(159, 216, 232, .4);
+  background: rgba(159, 216, 232, .08);
+}
+
+.admin-badge.DELETE,
+.admin-badge.LOGIN_FAIL,
+.admin-badge.LOCKED {
+  color: #ffb3b3;
+  border-color: rgba(255, 141, 141, .4);
+  background: rgba(255, 141, 141, .08);
+}
+
+.admin-badge.AUTO_AUSENTE,
+.admin-badge.auto {
+  color: #ffd9a3;
+  border-color: rgba(255, 217, 163, .4);
+  background: rgba(255, 217, 163, .08);
+}
+
+.admin-badge.LOGOUT,
+.admin-badge.manual {
+  color: #cfcfcf;
+  border-color: rgba(207, 207, 207, .4);
+  background: rgba(207, 207, 207, .08);
 }
 
 .admin-pagination {

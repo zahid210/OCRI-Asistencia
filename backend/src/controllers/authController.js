@@ -2,6 +2,32 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { Usuario, Trabajador } from '../db.js'
 import { JWT_SECRET } from '../middleware/authMiddleware.js'
+import { registrarAuditoria } from '../services/auditoriaService.js'
+
+const MAX_INTENTOS = 5
+const BLOQUEO_MS = 15 * 60 * 1000
+
+const loginFails = new Map()
+
+function auditorDatos(req) {
+  return { ip: req.ip, user_agent: req.headers['user-agent'] || null }
+}
+
+const fallaBloqueada = (usuarioKey) => {
+  const e = loginFails.get(usuarioKey)
+  return e && e.count >= MAX_INTENTOS && Date.now() < e.hasta
+}
+
+function registrarFallo(usuarioKey, req) {
+  const e = loginFails.get(usuarioKey)
+  if (!e) {
+    loginFails.set(usuarioKey, { count: 1, hasta: Date.now() + BLOQUEO_MS })
+    return 1
+  }
+  e.count += 1
+  e.hasta = Date.now() + BLOQUEO_MS
+  return e.count
+}
 
 function publicUserData(usuario) {
   const trabajador = usuario.Trabajador
@@ -35,6 +61,13 @@ export async function login(req, res) {
     return res.status(400).json({ message: 'Usuario inválido.' })
   }
 
+  const usuarioKey = usuario.toLowerCase()
+  if (fallaBloqueada(usuarioKey)) {
+    return res.status(429).json({
+      message: 'Demasiados intentos. La cuenta está bloqueada temporalmente, intente más tarde.'
+    })
+  }
+
   try {
     const user = await Usuario.findOne({
       where: { usuario },
@@ -42,6 +75,28 @@ export async function login(req, res) {
     })
 
     if (!user) {
+      const intentos = registrarFallo(usuarioKey, req)
+      if (intentos >= MAX_INTENTOS) {
+        await registrarAuditoria({
+          ...auditorDatos(req),
+          usuario,
+          entidad: 'auth',
+          accion: 'LOCKED',
+          descripcion: `Cuenta "${usuario}" bloqueada temporalmente por ${MAX_INTENTOS} intentos fallidos de acceso.`,
+          origen: 'auto'
+        })
+        return res.status(429).json({
+          message: 'Demasiados intentos. La cuenta está bloqueada temporalmente, intente más tarde.'
+        })
+      }
+      await registrarAuditoria({
+        ...auditorDatos(req),
+        usuario,
+        entidad: 'auth',
+        accion: 'LOGIN_FAIL',
+        descripcion: `Intento de inicio de sesión fallido para el usuario "${usuario}".`,
+        origen: 'manual'
+      })
       return res.status(401).json({ message: 'Credenciales inválidas.' })
     }
 
@@ -51,8 +106,36 @@ export async function login(req, res) {
 
     const valid = await bcrypt.compare(password, user.password_hash)
     if (!valid) {
+      const intentos = registrarFallo(usuarioKey, req)
+      if (intentos >= MAX_INTENTOS) {
+        await registrarAuditoria({
+          ...auditorDatos(req),
+          usuario: user.usuario,
+          usuario_id: user.id,
+          rol: user.rol,
+          entidad: 'auth',
+          accion: 'LOCKED',
+          descripcion: `Cuenta "${user.usuario}" bloqueada temporalmente por ${MAX_INTENTOS} intentos fallidos de acceso.`,
+          origen: 'auto'
+        })
+        return res.status(429).json({
+          message: 'Demasiados intentos. La cuenta está bloqueada temporalmente, intente más tarde.'
+        })
+      }
+      await registrarAuditoria({
+        ...auditorDatos(req),
+        usuario: user.usuario,
+        usuario_id: user.id,
+        rol: user.rol,
+        entidad: 'auth',
+        accion: 'LOGIN_FAIL',
+        descripcion: `Intento de inicio de sesión fallido para el usuario "${user.usuario}".`,
+        origen: 'manual'
+      })
       return res.status(401).json({ message: 'Credenciales inválidas.' })
     }
+
+    loginFails.delete(usuarioKey)
 
     await Usuario.update(
       { ultimo_acceso: new Date() },
@@ -65,9 +148,40 @@ export async function login(req, res) {
       { expiresIn: '12h' }
     )
 
+    await registrarAuditoria({
+      ...auditorDatos(req),
+      usuario: user.usuario,
+      usuario_id: user.id,
+      rol: user.rol,
+      entidad: 'auth',
+      accion: 'LOGIN',
+      descripcion: `Inicio de sesión exitoso del usuario "${user.usuario}".`,
+      origen: 'manual'
+    })
+
     res.json({ success: true, token, user: publicUserData(user) })
   } catch (err) {
     console.error('Login error:', err)
+    res.status(500).json({ message: 'Error interno del servidor.' })
+  }
+}
+
+export async function logout(req, res) {
+  try {
+    await registrarAuditoria({
+      usuario: req.user.usuario,
+      usuario_id: req.user.id,
+      rol: req.user.rol,
+      entidad: 'auth',
+      accion: 'LOGOUT',
+      descripcion: `Cierre de sesión del usuario "${req.user.usuario}".`,
+      origen: 'manual',
+      ip: req.ip,
+      user_agent: req.headers['user-agent'] || null
+    })
+    res.json({ success: true })
+  } catch (err) {
+    console.error('Logout error:', err)
     res.status(500).json({ message: 'Error interno del servidor.' })
   }
 }

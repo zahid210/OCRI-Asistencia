@@ -20,10 +20,43 @@ const tabs = [
   { key: 'asistencias', label: 'Asistencias' },
   { key: 'facultades', label: 'Facultades' },
   { key: 'trabajadores', label: 'Trabajadores' },
-  { key: 'usuarios', label: 'Usuarios' }
+  { key: 'usuarios', label: 'Usuarios' },
+  { key: 'auditorias', label: 'Auditoría' }
 ]
 
 const CRUD_TABS = ['practicantes', 'facultades', 'trabajadores', 'usuarios']
+
+const ACCION_LABELS = {
+  CREATE: 'Creación',
+  UPDATE: 'Actualización',
+  DELETE: 'Eliminación',
+  LOGIN: 'Inicio de sesión',
+  LOGOUT: 'Cierre de sesión',
+  LOGIN_FAIL: 'Intento fallido',
+  LOCKED: 'Cuenta bloqueada',
+  AUTO_AUSENTE: 'Ausencia automática',
+  REPORTE: 'Reporte descargado',
+  EXPORT: 'Exportación'
+}
+
+const AUDIT_ENTIDADES = [
+  ['facultad', 'Facultad'],
+  ['practicante', 'Practicante'],
+  ['asistencia', 'Asistencia'],
+  ['trabajador', 'Trabajador'],
+  ['usuario', 'Usuario'],
+  ['auth', 'Sesión'],
+  ['reporte', 'Reporte']
+]
+
+const AUDIT_ACCIONES = Object.keys(ACCION_LABELS)
+
+function formatoFechaHora(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return value
+  return d.toLocaleString('es-PE')
+}
 
 function formatFecha(value) {
   if (!value) return '—'
@@ -106,6 +139,17 @@ const columns = {
           ? new Date(r.ultimo_acceso).toLocaleString('es-PE')
           : '—'
     }
+  ],
+  auditorias: [
+    { key: 'fecha', label: 'Fecha', render: (r) => formatoFechaHora(r.createdAt) },
+    { key: 'usuario', label: 'Usuario', render: (r) => r.usuario || '—' },
+    { key: 'rol', label: 'Rol', render: (r) => r.rol || '—' },
+    { key: 'entidad', label: 'Entidad' },
+    { key: 'entidad_id', label: 'Registro' },
+    { key: 'accion', label: 'Acción', badge: true, render: (r) => ACCION_LABELS[r.accion] ?? r.accion },
+    { key: 'origen', label: 'Origen', badge: true, render: (r) => (r.origen === 'auto' ? 'Automático' : 'Manual') },
+    { key: 'descripcion', label: 'Descripción' },
+    { key: 'ip', label: 'IP', render: (r) => r.ip || '—' }
   ]
 }
 
@@ -181,6 +225,20 @@ const asistTotal = ref(0)
 const asistPages = ref(1)
 const asistExporting = ref(false)
 
+const auditFiltros = ref({
+  desde: '',
+  hasta: '',
+  usuario: '',
+  entidad: '',
+  accion: '',
+  origen: ''
+})
+const auditList = ref([])
+const auditPage = ref(1)
+const auditTotal = ref(0)
+const auditPages = ref(1)
+const auditExporting = ref(false)
+
 const practicanteBusqueda = ref('')
 const historialOpen = ref(false)
 const historialPracticante = ref(null)
@@ -242,12 +300,25 @@ const isSelfEditing = computed(
     Number(editingId.value) === Number(props.currentUser.id)
 )
 
-const currentCount = computed(() =>
-  activeTab.value === 'asistencias'
-    ? asistTotal.value
-    : (activeTab.value === 'practicantes'
-        ? filteredPracticantes.value.length
-        : lists.value[activeTab.value]?.length ?? 0)
+const currentCount = computed(() => {
+  if (activeTab.value === 'asistencias') return asistTotal.value
+  if (activeTab.value === 'auditorias') return auditTotal.value
+  if (activeTab.value === 'practicantes') return filteredPracticantes.value.length
+  return lists.value[activeTab.value]?.length ?? 0
+})
+
+const currentRows = computed(() => {
+  if (activeTab.value === 'practicantes') return filteredPracticantes.value
+  if (activeTab.value === 'auditorias') return auditList.value
+  return lists.value[activeTab.value] ?? []
+})
+
+const currentPage = computed(() =>
+  activeTab.value === 'asistencias' ? asistPage.value : auditPage.value
+)
+
+const currentPages = computed(() =>
+  activeTab.value === 'asistencias' ? asistPages.value : auditPages.value
 )
 
 const filteredPracticantes = computed(() => {
@@ -389,6 +460,85 @@ async function exportCsv() {
   }
 }
 
+async function loadAuditorias() {
+  loading.value = true
+  error.value = ''
+  try {
+    const params = new URLSearchParams()
+    params.set('page', auditPage.value)
+    const f = auditFiltros.value
+    if (f.desde) params.set('desde', f.desde)
+    if (f.hasta) params.set('hasta', f.hasta)
+    if (f.usuario) params.set('usuario', f.usuario)
+    if (f.entidad) params.set('entidad', f.entidad)
+    if (f.accion) params.set('accion', f.accion)
+    if (f.origen) params.set('origen', f.origen)
+
+    const { data, total, pages } = await api(`/api/admin/auditorias?${params}`)
+    auditList.value = data
+    auditTotal.value = total
+    auditPages.value = pages
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    loading.value = false
+  }
+}
+
+function applyAuditFiltros() {
+  auditPage.value = 1
+  loadAuditorias()
+}
+
+function clearAuditFiltros() {
+  auditFiltros.value = { desde: '', hasta: '', usuario: '', entidad: '', accion: '', origen: '' }
+  auditPage.value = 1
+  loadAuditorias()
+}
+
+async function exportAuditoria(formato) {
+  if (auditExporting.value) return
+  auditExporting.value = true
+  try {
+    const params = new URLSearchParams()
+    params.set('formato', formato)
+    const f = auditFiltros.value
+    if (f.desde) params.set('desde', f.desde)
+    if (f.hasta) params.set('hasta', f.hasta)
+    if (f.usuario) params.set('usuario', f.usuario)
+    if (f.entidad) params.set('entidad', f.entidad)
+    if (f.accion) params.set('accion', f.accion)
+    if (f.origen) params.set('origen', f.origen)
+
+    const response = await fetch(`/api/admin/auditorias/export?${params}`, {
+      headers: authHeaders()
+    })
+    if (response.status === 401) {
+      emit('session-expired')
+      throw new Error('Sesión expirada. Inicie sesión nuevamente.')
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      throw new Error(data.message || 'No se pudo exportar.')
+    }
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    if (formato === 'pdf') {
+      window.open(url, '_blank')
+    } else {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `auditoria-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    auditExporting.value = false
+  }
+}
+
 onMounted(loadAll)
 
 function selectTab(tab) {
@@ -396,6 +546,10 @@ function selectTab(tab) {
   if (tab === 'asistencias') {
     asistPage.value = 1
     loadAsistencias()
+  }
+  if (tab === 'auditorias') {
+    auditPage.value = 1
+    loadAuditorias()
   }
 }
 
@@ -548,6 +702,16 @@ function changeAsistPage(page) {
   loadAsistencias()
 }
 
+function changeAuditPage(page) {
+  auditPage.value = page
+  loadAuditorias()
+}
+
+function changePage(page) {
+  if (activeTab.value === 'asistencias') changeAsistPage(page)
+  else if (activeTab.value === 'auditorias') changeAuditPage(page)
+}
+
 async function openHistorial(row) {
   historialOpen.value = true
   historialPracticante.value = row
@@ -628,6 +792,69 @@ async function downloadReporte(row) {
             @exportar="exportCsv"
           />
 
+          <div v-else-if="activeTab === 'auditorias'" class="admin-audit-filters">
+            <input
+              v-model="auditFiltros.usuario"
+              type="text"
+              class="admin-search"
+              placeholder="Usuario…"
+            />
+            <select
+              v-model="auditFiltros.entidad"
+              class="admin-audit-select"
+            >
+              <option value="">Entidad</option>
+              <option v-for="[k, l] in AUDIT_ENTIDADES" :key="k" :value="k">{{ l }}</option>
+            </select>
+            <select
+              v-model="auditFiltros.accion"
+              class="admin-audit-select"
+            >
+              <option value="">Acción</option>
+              <option v-for="a in AUDIT_ACCIONES" :key="a" :value="a">{{ ACCION_LABELS[a] }}</option>
+            </select>
+            <select
+              v-model="auditFiltros.origen"
+              class="admin-audit-select"
+            >
+              <option value="">Origen</option>
+              <option value="manual">Manual</option>
+              <option value="auto">Automático</option>
+            </select>
+            <input
+              v-model="auditFiltros.desde"
+              type="date"
+              class="admin-search"
+              title="Desde"
+            />
+            <input
+              v-model="auditFiltros.hasta"
+              type="date"
+              class="admin-search"
+              title="Hasta"
+            />
+            <button type="button" class="admin-btn admin-btn-primary" @click="applyAuditFiltros">
+              Buscar
+            </button>
+            <button type="button" class="admin-btn" @click="clearAuditFiltros">Limpiar</button>
+            <button
+              type="button"
+              class="admin-btn"
+              :disabled="auditExporting"
+              @click="exportAuditoria('csv')"
+            >
+              CSV
+            </button>
+            <button
+              type="button"
+              class="admin-btn"
+              :disabled="auditExporting"
+              @click="exportAuditoria('pdf')"
+            >
+              PDF
+            </button>
+          </div>
+
           <div v-else class="admin-head-right">
             <input
               v-if="activeTab === 'practicantes'"
@@ -648,19 +875,19 @@ async function downloadReporte(row) {
 
         <AdminCrudTable
           :columns="columns[activeTab]"
-          :rows="activeTab === 'practicantes' ? filteredPracticantes : lists[activeTab]"
-          :show-actions="true"
+          :rows="currentRows"
+          :show-actions="activeTab !== 'auditorias'"
           :is-self="isSelf"
           :show-history="activeTab === 'practicantes'"
           :edit-only="activeTab === 'asistencias'"
           :can-delete="canDeleteRow"
-          :page="asistPage"
-          :pages="asistPages"
+          :page="currentPage"
+          :pages="currentPages"
           @edit="openEdit"
           @toggle-estado="toggleEstado"
           @delete="requestDelete"
           @history="openHistorial"
-          @page-change="changeAsistPage"
+          @page-change="changePage"
         />
 
         <p v-if="loading" class="admin-note">Cargando…</p>
@@ -944,6 +1171,35 @@ async function downloadReporte(row) {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.admin-audit-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-audit-select {
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 16px;
+  background: rgba(20, 20, 20, .9);
+  color: rgba(255, 255, 255, .85);
+  font-family: 'Inter', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  outline: none;
+  transition: border-color .18s ease, background .18s ease;
+}
+
+.admin-audit-select:focus {
+  border-color: rgba(255, 255, 255, .7);
+}
+
+.admin-audit-select option {
+  color: #fff;
+  background: #1c1c1c;
 }
 
 .admin-search {

@@ -75,6 +75,10 @@ export function useAuth() {
   }
 
   function logout() {
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: authHeaders()
+    }).catch(() => {})
     localStorage.removeItem(TOKEN_KEY)
     user.value = null
     loginError.value = ''

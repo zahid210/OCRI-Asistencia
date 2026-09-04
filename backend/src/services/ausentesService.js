@@ -1,6 +1,7 @@
 import { Op } from 'sequelize'
 import { Practicante, Asistencia } from '../db.js'
 import { limaNow } from './timeService.js'
+import { registrarAuditoria } from './auditoriaService.js'
 
 export const ABSENT_DEADLINE = '16:00:00'
 const LIMA_OFFSET = '-05:00'
@@ -40,6 +41,13 @@ export async function markAbsentsForDate(dateStr) {
         observacion: null
       }))
     )
+
+    await registrarAuditoria({
+      entidad: 'asistencia',
+      accion: 'AUTO_AUSENTE',
+      descripcion: `Se marcaron ${absentIds.length} practicantes como ausentes el ${dateStr} (proceso automático de las 16:00).`,
+      origen: 'auto'
+    })
   }
 
   return {

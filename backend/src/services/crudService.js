@@ -125,7 +125,7 @@ export function createCrud({ model, order = [], include, fields, notFound, befor
           if (value !== undefined) changes[field.key] = value
         }
         if (beforeUpdate) await beforeUpdate(req, changes)
-        await model.update(changes, { where: { id: req.params.id } })
+        await model.update(changes, { where: { id: req.params.id }, individualHooks: true })
         const row = await model.findByPk(req.params.id, include ? { include } : undefined)
         if (!row) throw new ApiError(404, notFound)
         res.json({ success: true, data: sanitize ? sanitize(row) : row })
@@ -137,7 +137,7 @@ export function createCrud({ model, order = [], include, fields, notFound, befor
     remove: async (req, res) => {
       try {
         if (beforeRemove) await beforeRemove(req)
-        const deleted = await model.destroy({ where: { id: req.params.id } })
+        const deleted = await model.destroy({ where: { id: req.params.id }, individualHooks: true })
         if (!deleted) throw new ApiError(404, notFound)
         res.json({ success: true })
       } catch (err) {

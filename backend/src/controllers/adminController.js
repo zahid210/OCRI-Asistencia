@@ -5,7 +5,8 @@ import sequelize from '../db.js'
 import { ENUMS, LIMITS, isDni } from '../validation.js'
 import { createCrud, ApiError, handleError } from '../services/crudService.js'
 import { runAbsentCheck } from '../services/ausentesService.js'
-import { renderReportePdf } from '../services/reporteService.js'
+import { renderReportePdf, renderGenericoPdf } from '../services/reporteService.js'
+import { registrarAuditoria } from '../services/auditoriaService.js'
 
 /* ------------------------- definición de campos ------------------------- */
 
@@ -46,8 +47,16 @@ export async function deletePracticante(req, res) {
     if (!practicante) throw new ApiError(404, 'Practicante no encontrado.')
 
     await sequelize.transaction(async (tx) => {
-      await Asistencia.destroy({ where: { practicante_id: req.params.id }, transaction: tx })
-      await Practicante.destroy({ where: { id: req.params.id }, transaction: tx })
+      await Asistencia.destroy({
+        where: { practicante_id: req.params.id },
+        transaction: tx,
+        individualHooks: true
+      })
+      await Practicante.destroy({
+        where: { id: req.params.id },
+        transaction: tx,
+        individualHooks: true
+      })
     })
 
     res.json({ success: true })
@@ -304,6 +313,19 @@ res.setHeader(
   `inline; filename="reporte-asistencia-${practicanteId}.pdf"`
 )
     res.send(Buffer.from(pdf))
+
+    await registrarAuditoria({
+      usuario: req.user.usuario,
+      usuario_id: req.user.id,
+      rol: req.user.rol,
+      entidad: 'reporte',
+      entidad_id: practicanteId,
+      accion: 'REPORTE',
+      descripcion: `Descargó el reporte PDF de asistencia del practicante ${practicante.apellidos}, ${practicante.nombre}.`,
+      origen: 'manual',
+      ip: req.ip,
+      user_agent: req.headers['user-agent'] || null
+    })
   } catch (err) {
     handleError(res, err)
   }
@@ -341,6 +363,18 @@ export async function exportAsistencias(req, res) {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', 'attachment; filename="asistencias.csv"')
     res.send(csv)
+
+    await registrarAuditoria({
+      usuario: req.user.usuario,
+      usuario_id: req.user.id,
+      rol: req.user.rol,
+      entidad: 'asistencia',
+      accion: 'EXPORT',
+      descripcion: `Exportó el CSV de asistencias (${rows.length} registros).`,
+      origen: 'manual',
+      ip: req.ip,
+      user_agent: req.headers['user-agent'] || null
+    })
   } catch (err) {
     handleError(res, err)
   }
@@ -425,6 +459,188 @@ export async function updateAsistencia(req, res) {
 
     await asistencia.update(changes)
     res.json({ success: true, data: asistencia })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+/* ------------------------- Auditoría ------------------------- */
+
+const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/
+const AUDIT_ENTIDADES = ['facultad', 'practicante', 'asistencia', 'trabajador', 'usuario', 'auth', 'reporte']
+const AUDIT_ACCIONES = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'LOGIN_FAIL', 'LOCKED', 'AUTO_AUSENTE', 'REPORTE', 'EXPORT']
+const AUDIT_ORIGENES = ['manual', 'auto']
+
+const ACCION_LABELS = {
+  CREATE: 'Creación',
+  UPDATE: 'Actualización',
+  DELETE: 'Eliminación',
+  LOGIN: 'Inicio de sesión',
+  LOGOUT: 'Cierre de sesión',
+  LOGIN_FAIL: 'Intento fallido',
+  LOCKED: 'Cuenta bloqueada',
+  AUTO_AUSENTE: 'Ausencia automática',
+  REPORTE: 'Reporte descargado',
+  EXPORT: 'Exportación'
+}
+
+function auditFilters(query) {
+  const where = {}
+
+  if (query.desde || query.hasta) {
+    if (query.desde && !FECHA_RE.test(query.desde)) throw new ApiError(400, 'Fecha "desde" inválida.')
+    if (query.hasta && !FECHA_RE.test(query.hasta)) throw new ApiError(400, 'Fecha "hasta" inválida.')
+    where.createdAt = {}
+    if (query.desde) where.createdAt[Op.gte] = `${query.desde} 00:00:00`
+    if (query.hasta) where.createdAt[Op.lte] = `${query.hasta} 23:59:59`
+  }
+
+  if (query.usuario) where.usuario = { [Op.like]: `%${String(query.usuario).trim()}%` }
+  if (query.entidad) {
+    if (!AUDIT_ENTIDADES.includes(query.entidad)) throw new ApiError(400, 'Entidad inválida.')
+    where.entidad = query.entidad
+  }
+  if (query.accion) {
+    if (!AUDIT_ACCIONES.includes(query.accion)) throw new ApiError(400, 'Acción inválida.')
+    where.accion = query.accion
+  }
+  if (query.origen) {
+    if (!AUDIT_ORIGENES.includes(query.origen)) throw new ApiError(400, 'Origen inválido.')
+    where.origen = query.origen
+  }
+
+  return where
+}
+
+export async function listAuditorias(req, res) {
+  try {
+    const where = auditFilters(req.query)
+    const limit = Math.min(Number(req.query.limit) || 50, 200)
+    const page = Math.max(Number(req.query.page) || 1, 1)
+    const offset = (page - 1) * limit
+
+    const { rows, count } = await sequelize.models.Auditoria.findAndCountAll({
+      where,
+      order: [['createdAt', 'DESC'], ['id', 'DESC']],
+      limit,
+      offset
+    })
+
+    res.json({
+      success: true,
+      data: rows,
+      total: count,
+      page,
+      pages: Math.max(Math.ceil(count / limit), 1)
+    })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+const AUDIT_HEADER = ['Fecha', 'Usuario', 'Rol', 'Entidad', 'Registro', 'Acción', 'Origen', 'Descripción', 'IP']
+
+export async function exportAuditorias(req, res) {
+  try {
+    const where = auditFilters(req.query)
+    let rows
+    if (req.query.formato === 'pdf') {
+      rows = await sequelize.models.Auditoria.findAll({
+        where,
+        order: [['createdAt', 'DESC'], ['id', 'DESC']]
+      })
+    } else {
+      rows = await sequelize.models.Auditoria.findAll({
+        where,
+        order: [['createdAt', 'DESC'], ['id', 'DESC']],
+        limit: 10000
+      })
+    }
+
+    const usuarioLabel = req.user.usuario
+
+    if (req.query.formato === 'pdf') {
+      const filas = rows
+        .map(
+          (r, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${esc(r.createdAt)}</td>
+          <td>${esc(r.usuario ?? '—')}</td>
+          <td>${esc(r.entidad)}</td>
+          <td>${esc(r.entidad_id ?? '—')}</td>
+          <td>${esc(ACCION_LABELS[r.accion] ?? r.accion)}</td>
+          <td>${esc(r.origen)}</td>
+          <td>${esc(r.descripcion ?? '')}</td>
+        </tr>`
+        )
+        .join('\n')
+
+      const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte de Auditoría</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0; background: #fff; font-family: Helvetica; font-size: 11px; color: #000; }
+  @page { size: A4 landscape; margin: 12mm 10mm; }
+  .title { text-align: center; font-size: 15px; font-weight: bold; margin: 0 0 4px 0; text-decoration: underline; }
+  .sub { text-align: center; font-size: 11px; margin: 0 0 14px 0; }
+  table.report { width: 100%; border-collapse: collapse; font-size: 9px; }
+  .report th { border: 1px solid #000; padding: 4px 6px; background: #e8e8e8; text-align: left; }
+  .report td { border: 1px solid #999; padding: 4px 6px; }
+</style>
+</head>
+<body>
+  <p class="title">Reporte de Auditoría</p>
+  <p class="sub">Generado por ${esc(usuarioLabel)} · ${new Date().toLocaleString('es-PE')} · ${rows.length} registro(s)</p>
+  <table class="report">
+    <thead>
+      <tr><th>#</th><th>Fecha</th><th>Usuario</th><th>Entidad</th><th>Registro</th><th>Acción</th><th>Origen</th><th>Descripción</th></tr>
+    </thead>
+    <tbody>${filas || '<tr><td colspan="8">Sin registros.</td></tr>'}</tbody>
+  </table>
+</body>
+</html>`
+
+      const pdf = await renderGenericoPdf(html)
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Disposition', 'inline; filename="reporte-auditoria.pdf"')
+      res.send(Buffer.from(pdf))
+    } else {
+      const lines = rows.map((r) =>
+        [
+          r.createdAt,
+          r.usuario,
+          r.rol,
+          r.entidad,
+          r.entidad_id,
+          r.accion,
+          r.origen,
+          r.descripcion,
+          r.ip
+        ]
+          .map(esc)
+          .join(';')
+      )
+      const csv = '\uFEFF' + [AUDIT_HEADER.map(esc).join(';'), ...lines].join('\r\n')
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+      res.setHeader('Content-Disposition', 'attachment; filename="auditoria.csv"')
+      res.send(csv)
+    }
+
+    await registrarAuditoria({
+      usuario: req.user.usuario,
+      usuario_id: req.user.id,
+      rol: req.user.rol,
+      entidad: 'auditoria',
+      accion: 'EXPORT',
+      descripcion: `Exportó ${req.query.formato === 'pdf' ? 'el PDF de auditoría' : 'el CSV de auditoría'} (${rows.length} registros).`,
+      origen: 'manual',
+      ip: req.ip,
+      user_agent: req.headers['user-agent'] || null
+    })
   } catch (err) {
     handleError(res, err)
   }
