@@ -22,9 +22,11 @@ import {
   reportePracticante,
   updateAsistencia,
   listAuditorias,
-  exportAuditorias
+  exportAuditorias,
+  listAlertas
 } from '../controllers/adminController.js'
 import { authRequired, requireAdmin } from '../middleware/authMiddleware.js'
+import { apiRateLimit } from '../middleware/rateLimit.js'
 import { cacheMiddleware, cacheInvalidate } from '../services/cacheService.js'
 
 const router = Router()
@@ -38,9 +40,12 @@ const invalTra = (_req, _res, next) => { cacheInvalidate('admin/trabajadores'); 
 const invalUsu = (_req, _res, next) => { cacheInvalidate('admin/usuarios'); next() }
 const invalAsis = (_req, _res, next) => { cacheInvalidate('admin/asistencias'); next() }
 
+const limitWrites = apiRateLimit({ windowMs: 15 * 60 * 1000, max: 30, keyPrefix: 'admin-w' })
+const limitExports = apiRateLimit({ windowMs: 60 * 1000, max: 15, keyPrefix: 'admin-x' })
+
 router.get('/practicantes', cacheMiddleware(), listPracticantes)
 router.get('/practicantes/:id/historial', cacheMiddleware(), historialPracticante)
-router.get('/practicantes/:id/reporte', reportePracticante)
+router.get('/practicantes/:id/reporte', limitExports, reportePracticante)
 router.post('/practicantes', invalPro, createPracticante)
 router.put('/practicantes/:id', invalPro, updatePracticante)
 router.delete('/practicantes/:id', invalPro, deletePracticante)
@@ -56,15 +61,16 @@ router.put('/trabajadores/:id', invalTra, updateTrabajador)
 router.delete('/trabajadores/:id', invalTra, deleteTrabajador)
 
 router.get('/usuarios', cacheMiddleware(), listUsuarios)
-router.post('/usuarios', invalUsu, createUsuario)
-router.put('/usuarios/:id', invalUsu, updateUsuario)
-router.delete('/usuarios/:id', invalUsu, deleteUsuario)
+router.post('/usuarios', limitWrites, invalUsu, createUsuario)
+router.put('/usuarios/:id', limitWrites, invalUsu, updateUsuario)
+router.delete('/usuarios/:id', limitWrites, invalUsu, deleteUsuario)
 
-router.get('/asistencias/export', exportAsistencias)
+router.get('/asistencias/export', limitExports, exportAsistencias)
 router.get('/asistencias', cacheMiddleware(), listAsistencias)
 router.put('/asistencias/:id', invalAsis, updateAsistencia)
 
 router.get('/auditorias', listAuditorias)
-router.get('/auditorias/export', exportAuditorias)
+router.get('/auditorias/export', limitExports, exportAuditorias)
+router.get('/seguridad/alertas', limitExports, listAlertas)
 
 export default router

@@ -540,6 +540,20 @@ export async function listAuditorias(req, res) {
 
 const AUDIT_HEADER = ['Fecha', 'Usuario', 'Rol', 'Entidad', 'Registro', 'Acción', 'Origen', 'Descripción', 'IP']
 
+export async function listAlertas(req, res) {
+  try {
+    const rows = await sequelize.models.Auditoria.findAll({
+      where: { accion: { [Op.in]: ['LOCKED', 'LOGIN_FAIL'] } },
+      order: [['createdAt', 'DESC'], ['id', 'DESC']],
+      limit: 20
+    })
+
+    res.json({ success: true, data: rows })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
 export async function exportAuditorias(req, res) {
   try {
     const where = auditFilters(req.query)

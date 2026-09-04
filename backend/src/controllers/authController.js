@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { Usuario, Trabajador } from '../db.js'
-import { JWT_SECRET } from '../middleware/authMiddleware.js'
+import { JWT_SECRET, setAuthCookie, clearAuthCookie } from '../middleware/authMiddleware.js'
 import { registrarAuditoria } from '../services/auditoriaService.js'
 
 const MAX_INTENTOS = 5
@@ -27,6 +27,23 @@ function registrarFallo(usuarioKey, req) {
   e.count += 1
   e.hasta = Date.now() + BLOQUEO_MS
   return e.count
+}
+
+async function bloquearCuenta(user, req) {
+  const hasta = new Date(Date.now() + BLOQUEO_MS)
+  await Usuario.update({ locked_until: hasta }, { where: { id: user.id } })
+  loginFails.set(user.usuario.toLowerCase(), { count: MAX_INTENTOS, hasta: Date.now() + BLOQUEO_MS })
+  await registrarAuditoria({
+    ...auditorDatos(req),
+    usuario: user.usuario,
+    usuario_id: user.id,
+    rol: user.rol,
+    entidad: 'auth',
+    accion: 'LOCKED',
+    descripcion: `Cuenta "${user.usuario}" bloqueada hasta ${hasta.toISOString()} por ${MAX_INTENTOS} intentos fallidos de acceso.`,
+    origen: 'auto'
+  })
+  console.error(`[SEGURIDAD] Cuenta "${user.usuario}" bloqueada temporalmente por intentos fallidos (IP: ${req.ip}).`)
 }
 
 function publicUserData(usuario) {
@@ -100,6 +117,12 @@ export async function login(req, res) {
       return res.status(401).json({ message: 'Credenciales inválidas.' })
     }
 
+    if (user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
+      return res.status(429).json({
+        message: 'Demasiados intentos. La cuenta está bloqueada temporalmente, intente más tarde.'
+      })
+    }
+
     if (user.estado !== 'ACTIVO') {
       return res.status(403).json({ message: 'Usuario inactivo.' })
     }
@@ -108,16 +131,7 @@ export async function login(req, res) {
     if (!valid) {
       const intentos = registrarFallo(usuarioKey, req)
       if (intentos >= MAX_INTENTOS) {
-        await registrarAuditoria({
-          ...auditorDatos(req),
-          usuario: user.usuario,
-          usuario_id: user.id,
-          rol: user.rol,
-          entidad: 'auth',
-          accion: 'LOCKED',
-          descripcion: `Cuenta "${user.usuario}" bloqueada temporalmente por ${MAX_INTENTOS} intentos fallidos de acceso.`,
-          origen: 'auto'
-        })
+        await bloquearCuenta(user, req)
         return res.status(429).json({
           message: 'Demasiados intentos. La cuenta está bloqueada temporalmente, intente más tarde.'
         })
@@ -138,7 +152,7 @@ export async function login(req, res) {
     loginFails.delete(usuarioKey)
 
     await Usuario.update(
-      { ultimo_acceso: new Date() },
+      { ultimo_acceso: new Date(), locked_until: null },
       { where: { id: user.id } }
     )
 
@@ -147,6 +161,8 @@ export async function login(req, res) {
       JWT_SECRET,
       { expiresIn: '12h' }
     )
+
+    setAuthCookie(res, token)
 
     await registrarAuditoria({
       ...auditorDatos(req),
@@ -168,6 +184,7 @@ export async function login(req, res) {
 
 export async function logout(req, res) {
   try {
+    clearAuthCookie(res)
     await registrarAuditoria({
       usuario: req.user.usuario,
       usuario_id: req.user.id,

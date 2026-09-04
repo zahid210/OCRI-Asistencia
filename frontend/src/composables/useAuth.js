@@ -1,6 +1,5 @@
 import { ref } from 'vue'
 
-const TOKEN_KEY = 'ocri_token'
 const user = ref(null)
 const authLoading = ref(true)
 const loginUsuario = ref('')
@@ -10,26 +9,24 @@ const loginSubmitting = ref(false)
 
 export function useAuth() {
   function authHeaders() {
-    const token = localStorage.getItem(TOKEN_KEY)
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    return {}
+  }
+
+  function fetchOptions() {
+    return { credentials: 'include', headers: authHeaders() }
   }
 
   async function restoreSession() {
-    const token = localStorage.getItem(TOKEN_KEY)
-    if (!token) {
-      authLoading.value = false
-      return
-    }
     try {
-      const response = await fetch('/api/auth/me', { headers: authHeaders() })
+      const response = await fetch('/api/auth/me', fetchOptions())
       const data = await response.json()
-      if (!response.ok || !data.success) {
-        localStorage.removeItem(TOKEN_KEY)
-      } else {
+      if (response.ok && data.success) {
         user.value = data.user
+      } else {
+        user.value = null
       }
     } catch {
-      localStorage.removeItem(TOKEN_KEY)
+      user.value = null
     } finally {
       authLoading.value = false
     }
@@ -45,6 +42,7 @@ export function useAuth() {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           usuario: loginUsuario.value.trim(),
@@ -59,9 +57,13 @@ export function useAuth() {
         return false
       }
 
+      if (response.status === 429) {
+        loginError.value = data.message || 'Demasiados intentos. Intente más tarde.'
+        return false
+      }
+
       if (!response.ok) throw new Error(data.message || 'No se pudo iniciar sesión')
 
-      localStorage.setItem(TOKEN_KEY, data.token)
       user.value = data.user
       loginUsuario.value = ''
       loginPassword.value = ''
@@ -77,9 +79,8 @@ export function useAuth() {
   function logout() {
     fetch('/api/auth/logout', {
       method: 'POST',
-      headers: authHeaders()
+      credentials: 'include'
     }).catch(() => {})
-    localStorage.removeItem(TOKEN_KEY)
     user.value = null
     loginError.value = ''
     loginPassword.value = ''
@@ -93,6 +94,7 @@ export function useAuth() {
     loginError,
     loginSubmitting,
     authHeaders,
+    fetchOptions,
     restoreSession,
     login,
     logout

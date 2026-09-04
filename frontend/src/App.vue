@@ -161,6 +161,7 @@ async function registerAttendance() {
   try {
     const response = await fetch('/api/attendance', {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...authHeaders()

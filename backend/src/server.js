@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import express from 'express'
-import cors from 'cors'
+import helmet from 'helmet'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import sequelize from './db.js'
@@ -15,12 +15,72 @@ const app = express()
 const PORT = process.env.PORT || 3000
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const IS_PROD = process.env.NODE_ENV === 'production'
 
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? undefined : '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false)
+
+function isOriginAllowed(origin, host) {
+  if (!origin) return true
+
+  let originUrl
+  try {
+    originUrl = new URL(origin)
+  } catch {
+    return false
+  }
+
+  const hostName = String(host || '').split(':')[0].toLowerCase()
+  if (originUrl.hostname.toLowerCase() === hostName) return true
+
+  if (
+    (hostName === 'localhost' || hostName === '127.0.0.1') &&
+    (originUrl.hostname === 'localhost' || originUrl.hostname === '127.0.0.1')
+  ) {
+    return true
+  }
+
+  const configured = String(process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return configured.includes(origin)
+}
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      fontSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'", 'ws:', 'wss:'],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: IS_PROD ? [] : null
+    }
+  },
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  hsts: IS_PROD ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false
 }))
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin
+  if (origin && isOriginAllowed(origin, req.get('host'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Vary', 'Origin')
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204)
+    }
+  }
+  next()
+})
+
 app.use(express.json({ limit: '10kb' }))
 
 app.get('/api/health', async (_req, res) => {

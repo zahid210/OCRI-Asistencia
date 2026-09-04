@@ -10,8 +10,6 @@ const props = defineProps({
 
 const emit = defineEmits(['session-expired'])
 
-const TOKEN_KEY = 'ocri_token'
-
 const _cache = new Map()
 const _CACHE_TTL = 30_000
 
@@ -238,6 +236,8 @@ const auditPage = ref(1)
 const auditTotal = ref(0)
 const auditPages = ref(1)
 const auditExporting = ref(false)
+const seguridadAlertas = ref([])
+const seguridadCargando = ref(false)
 
 const practicanteBusqueda = ref('')
 const historialOpen = ref(false)
@@ -335,8 +335,7 @@ const filteredPracticantes = computed(() => {
 })
 
 function authHeaders() {
-  const token = localStorage.getItem(TOKEN_KEY)
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  return {}
 }
 
 async function api(path, options = {}) {
@@ -350,6 +349,7 @@ async function api(path, options = {}) {
 
   const response = await fetch(path, {
     ...options,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...authHeaders(),
@@ -436,6 +436,7 @@ async function exportCsv() {
     if (asistFiltros.value.dni) params.set('dni', asistFiltros.value.dni)
 
     const response = await fetch(`/api/admin/asistencias/export?${params}`, {
+      credentials: 'include',
       headers: authHeaders()
     })
     if (response.status === 401) {
@@ -496,6 +497,20 @@ function clearAuditFiltros() {
   loadAuditorias()
 }
 
+async function loadSeguridadAlertas() {
+  seguridadCargando.value = true
+  try {
+    const { data } = await api('/api/admin/seguridad/alertas')
+    seguridadAlertas.value = data
+  } catch (e) {
+    if (e.message !== 'Sesión expirada. Inicie sesión nuevamente.') {
+      seguridadAlertas.value = []
+    }
+  } finally {
+    seguridadCargando.value = false
+  }
+}
+
 async function exportAuditoria(formato) {
   if (auditExporting.value) return
   auditExporting.value = true
@@ -511,6 +526,7 @@ async function exportAuditoria(formato) {
     if (f.origen) params.set('origen', f.origen)
 
     const response = await fetch(`/api/admin/auditorias/export?${params}`, {
+      credentials: 'include',
       headers: authHeaders()
     })
     if (response.status === 401) {
@@ -550,6 +566,7 @@ function selectTab(tab) {
   if (tab === 'auditorias') {
     auditPage.value = 1
     loadAuditorias()
+    loadSeguridadAlertas()
   }
 }
 
@@ -737,6 +754,7 @@ async function downloadReporte(row) {
   if (!row) return
   try {
     const response = await fetch(`/api/admin/practicantes/${row.id}/reporte`, {
+      credentials: 'include',
       headers: authHeaders()
     })
     if (response.status === 401) {
@@ -892,6 +910,19 @@ async function downloadReporte(row) {
 
         <p v-if="loading" class="admin-note">Cargando…</p>
         <p v-else-if="!currentCount" class="admin-note">Sin registros.</p>
+
+        <div v-if="activeTab === 'auditorias' && seguridadAlertas.length" class="admin-security-alerts">
+          <p class="admin-security-alerts-title">Alertas de seguridad recientes (intentos fallidos y bloqueos)</p>
+          <ul class="admin-security-list">
+            <li v-for="a in seguridadAlertas" :key="a.id" class="admin-security-item">
+              <span class="admin-security-badge">{{ ACCION_LABELS[a.accion] || a.accion }}</span>
+              <span class="admin-security-who">{{ a.usuario || '—' }}</span>
+              <span class="admin-security-when">{{ formatoFechaHora(a.createdAt) }}</span>
+              <span class="admin-security-desc">{{ a.descripcion || '' }}</span>
+              <span v-if="a.ip" class="admin-security-ip">{{ a.ip }}</span>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -1171,6 +1202,76 @@ async function downloadReporte(row) {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.admin-security-alerts {
+  padding: 10px 14px;
+  margin-top: 12px;
+  border: 1px solid rgba(255, 90, 90, .45);
+  border-radius: 12px;
+  background: rgba(120, 20, 20, .18);
+}
+
+.admin-security-alerts-title {
+  margin: 0 0 8px 0;
+  color: #ff9d9d;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+
+.admin-security-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+.admin-security-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, .85);
+}
+
+.admin-security-badge {
+  padding: 2px 9px;
+  border-radius: 10px;
+  background: rgba(220, 60, 60, .85);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-security-who {
+  font-weight: 600;
+  color: #fff;
+}
+
+.admin-security-when {
+  color: rgba(255, 255, 255, .55);
+  white-space: nowrap;
+}
+
+.admin-security-desc {
+  flex: 1 1 200px;
+}
+
+.admin-security-ip {
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .1);
+  color: rgba(255, 255, 255, .6);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .admin-audit-filters {

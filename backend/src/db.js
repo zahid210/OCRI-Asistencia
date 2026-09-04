@@ -143,7 +143,8 @@ export const Usuario = sequelize.define(
       allowNull: false,
       defaultValue: 'ACTIVO'
     },
-    ultimo_acceso: { type: DataTypes.DATE, allowNull: true }
+    ultimo_acceso: { type: DataTypes.DATE, allowNull: true },
+    locked_until: { type: DataTypes.DATE, allowNull: true }
   },
   {
     tableName: 'usuarios'
